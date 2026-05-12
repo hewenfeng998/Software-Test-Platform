@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目任务登记平台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .add-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .add-btn:hover {
+            background-color: #45a049;
+        }
+        .filter-form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .filter-form label {
+            font-weight: bold;
+            color: #333;
+        }
+        .filter-form input[type="date"],
+        .filter-form button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .filter-form button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .filter-form button:hover {
+            background-color: #1976D2;
+        }
+        .filter-form .reset-btn:hover {
+            background-color: #bbb;
+        }
+        .home-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .home-btn:hover {
+            background-color: #1976D2;
+        }
+        .analysis-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #9c27b0;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .analysis-btn:hover {
+            background-color: #7b1fa2;
+        }
+        .export-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #ff9800;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .export-btn:hover {
+            background-color: #f57c00;
+        }
+        .import-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .import-btn:hover {
+            background-color: #388E3C;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            word-wrap: break-word;
+            max-width: 150px;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            max-width: none;
+        }
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        .status {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        .status-pending { background-color: #ff9800; color: white; }
+        .status-progress { background-color: #2196F3; color: white; }
+        .status-completed { background-color: #4CAF50; color: white; }
+        .progress-bar {
+            width: 100px;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #4CAF50;
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+        .progress-text {
+            display: inline-block;
+            margin-left: 8px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .actions a {
+            text-decoration: none;
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .detail-btn {
+            background-color: #795548;
+            color: white;
+        }
+        .edit-btn {
+            background-color: #2196F3;
+            color: white;
+        }
+        .delete-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        .detail-btn:hover {
+            background-color: #5d4037;
+        }
+        .edit-btn:hover {
+            background-color: #1976D2;
+        }
+        .delete-btn:hover {
+            background-color: #d32f2f;
+        }
+        .flash-message {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .flash-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .no-tasks {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+        .blockers {
+            color: #f44336;
+            font-size: 12px;
+        }
+        .blockers::before {
+            content: '⚠ ';
+        }
+        .scrollable {
+            overflow-x: auto;
+        }
+        .date-range {
+            color: #666;
+            font-size: 13px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 30px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 10px;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 20px;
+        }
+        .modal-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover,
+        .close:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal-body {
+            line-height: 2;
+        }
+        .detail-row {
+            display: flex;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .detail-label {
+            width: 120px;
+            font-weight: bold;
+            color: #666;
+            flex-shrink: 0;
+        }
+        .detail-value {
+            color: #333;
+        }
+        .detail-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        .detail-priority {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        .detail-priority-high { background-color: #f44336; color: white; }
+        .detail-priority-medium { background-color: #ff9800; color: white; }
+        .detail-priority-low { background-color: #9e9e9e; color: white; }
+        .detail-progress-bar {
+            width: 100%;
+            height: 24px;
+            background-color: #f0f0f0;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .detail-progress-fill {
+            height: 100%;
+            background-color: #4CAF50;
+            border-radius: 12px;
+            transition: width 0.3s;
+        }
+        .modal-footer {
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            margin-top: 20px;
+            text-align: right;
+        }
+        .modal-footer button {
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .modal-footer button:hover {
+            background-color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>项目任务登记平台</h1>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="flash-message flash-success">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+            <a href="{{ url_for('home') }}" class="home-btn">🏠 返回主页</a>
+            <a href="{{ url_for('add_task') }}" class="add-btn">+ 添加新任务</a>
+            <a href="{{ url_for('analysis') }}" class="analysis-btn">📊 数据分析</a>
+            <a href="{{ url_for('export_tasks') }}" class="export-btn">📥 导出数据</a>
+            <button class="import-btn" onclick="document.getElementById('importForm').style.display = 'block'">📤 导入数据</button>
+        </div>
+        
+        <div id="importForm" style="display: none; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px;">
+            <h3>📤 导入任务数据</h3>
+            <form action="{{ url_for('import_tasks') }}" method="POST" enctype="multipart/form-data" style="margin-top: 15px;">
+                <input type="file" name="file" accept=".csv" required style="margin-bottom: 10px;">
+                <br>
+                <button type="submit" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">导入CSV</button>
+                <button type="button" onclick="document.getElementById('importForm').style.display = 'none'" style="padding: 8px 16px; background: #ccc; color: #333; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">取消</button>
+            </form>
+            <p style="margin-top: 10px; font-size: 12px; color: #666;">支持CSV格式，需包含标题行：标题,描述,状态,优先级,送测人,测试人员,行业,JIRA链接,开始时间,结束时间,进度,卡点问题</p>
+        </div>
+        
+        <form class="filter-form" method="GET">
+            <label>标题搜索:</label>
+            <input type="text" name="search" placeholder="输入标题关键词..." value="{{ search_keyword or '' }}" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+            <label>测试人员:</label>
+            <select name="tester_filter" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                <option value="all" {% if tester_filter == 'all' or tester_filter is none or tester_filter == '' %}selected{% endif %}>全部</option>
+                {% for tester in tester_list %}
+                <option value="{{ tester }}" {% if tester_filter == tester %}selected{% endif %}>{{ tester }}</option>
+                {% endfor %}
+            </select>
+            <label>状态筛选:</label>
+            <select name="status_filter" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                <option value="all" {% if status_filter == 'all' or status_filter is none or status_filter == '' %}selected{% endif %}>全部</option>
+                <option value="待处理" {% if status_filter == '待处理' %}selected{% endif %}>待处理</option>
+                <option value="进行中" {% if status_filter == '进行中' %}selected{% endif %}>进行中</option>
+                <option value="已完成" {% if status_filter == '已完成' %}selected{% endif %}>已完成</option>
+            </select>
+            <label>开始时间筛选:</label>
+            <input type="date" name="start_filter" value="{{ start_filter or '' }}">
+            <label>结束时间筛选:</label>
+            <input type="date" name="end_filter" value="{{ end_filter or '' }}">
+            <div style="display: flex; gap: 10px;">
+                <button type="submit">筛选</button>
+                <button type="button" class="reset-btn" onclick="window.location.href='{{ url_for('index') }}'">重置</button>
+            </div>
+        </form>
+        
+        {% if tasks %}
+        <div class="scrollable">
+            <table>
+                <thead>
+                    <tr>
+                        <th>行业</th>
+                        <th>标题</th>
+                        <th>测试人员</th>
+                        <th>状态</th>
+                        <th>完成进度</th>
+                        <th>时间范围</th>
+                        <th>卡点问题</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr>
+                        <td>{{ task.industry or '-' }}</td>
+                        <td>{{ task.title }}</td>
+                        <td>{{ task.tester or '-' }}</td>
+                        <td>
+                            <span class="status {% if task.status == '待处理' %}status-pending{% elif task.status == '进行中' %}status-progress{% else %}status-completed{% endif %}">
+                                {{ task.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: {{ task.progress }}%"></div>
+                            </div>
+                            <span class="progress-text">{{ task.progress }}%</span>
+                        </td>
+                        <td>
+                            {% if task.start_date %}
+                                {% if task.end_date %}
+                                    <span class="date-range">{{ task.start_date.strftime('%Y-%m-%d') }} ~ {{ task.end_date.strftime('%Y-%m-%d') }}</span>
+                                {% else %}
+                                    <span class="date-range">{{ task.start_date.strftime('%Y-%m-%d') }} ~</span>
+                                {% endif %}
+                            {% elif task.end_date %}
+                                <span class="date-range">~ {{ task.end_date.strftime('%Y-%m-%d') }}</span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{% if task.blockers %}<span class="blockers">{{ task.blockers[:30] }}{% if task.blockers|length > 30 %}...{% endif %}</span>{% else %}-{% endif %}</td>
+                        <td class="actions">
+                            <a href="#" class="detail-btn" onclick="showDetail({{ task.id }})">详情</a>
+                            <a href="{{ url_for('edit_task', id=task.id) }}" class="edit-btn">编辑</a>
+                            {% if can_delete %}
+                            <a href="{{ url_for('delete_task', id=task.id) }}" class="delete-btn" onclick="return confirm('确定删除此任务吗？')">删除</a>
+                            {% else %}
+                            <a href="#" class="delete-btn" onclick="alert('您没有删除权限！')">删除</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="no-tasks">暂无任务，请添加新任务</div>
+        {% endif %}
+    </div>
+
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h2 class="modal-title" id="modalTitle">任务详情</h2>
+            </div>
+            <div class="modal-body" id="modalBody">
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var tasksData = [
+            {% for task in tasks %}
+            {
+                id: {{ task.id }},
+                title: "{{ task.title | replace('"', '\\"') }}",
+                description: "{{ task.description | replace('"', '\\"') if task.description else '' }}",
+                status: "{{ task.status }}",
+                priority: "{{ task.priority }}",
+                submitter: "{{ task.submitter if task.submitter else '' }}",
+                tester: "{{ task.tester if task.tester else '' }}",
+                industry: "{{ task.industry if task.industry else '' }}",
+                jiraLink: "{{ task.jira_link if task.jira_link else '' }}",
+                startDate: "{{ task.start_date.strftime('%Y-%m-%d') if task.start_date else '' }}",
+                endDate: "{{ task.end_date.strftime('%Y-%m-%d') if task.end_date else '' }}",
+                progress: {{ task.progress }},
+                blockers: "{{ task.blockers | replace('"', '\\"') if task.blockers else '' }}",
+                createdAt: "{{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') }}"
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ];
+
+        function showDetail(taskId) {
+            var task = tasksData.find(function(t) { return t.id === taskId; });
+            if (!task) return;
+            
+            var modal = document.getElementById('detailModal');
+            var title = document.getElementById('modalTitle');
+            var body = document.getElementById('modalBody');
+            
+            title.innerHTML = task.title;
+            
+            var statusClass = task.status === '待处理' ? 'status-pending' : 
+                             task.status === '进行中' ? 'status-progress' : 'status-completed';
+            var priorityClass = task.priority === '高' ? 'detail-priority-high' : 
+                               task.priority === '中等' ? 'detail-priority-medium' : 'detail-priority-low';
+            
+            body.innerHTML = `
+                <div class="detail-row">
+                    <div class="detail-label">状态</div>
+                    <div class="detail-value"><span class="detail-status ${statusClass}">${task.status}</span></div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">优先级</div>
+                    <div class="detail-value"><span class="detail-priority ${priorityClass}">${task.priority}</span></div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">所属行业</div>
+                    <div class="detail-value">${task.industry || '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">JIRA链接</div>
+                    <div class="detail-value">${task.jiraLink ? '<a href="' + task.jiraLink + '" target="_blank" style="color: #2196F3; text-decoration: underline;">' + task.jiraLink + '</a>' : '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">送测人</div>
+                    <div class="detail-value">${task.submitter || '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">测试人员</div>
+                    <div class="detail-value">${task.tester || '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">时间范围</div>
+                    <div class="detail-value">${task.startDate ? task.startDate : '-'} ~ ${task.endDate ? task.endDate : '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">完成进度</div>
+                    <div class="detail-value">
+                        <div class="detail-progress-bar">
+                            <div class="detail-progress-fill" style="width: ${task.progress}%"></div>
+                        </div>
+                        <div style="margin-top: 8px; font-weight: bold;">${task.progress}%</div>
+                    </div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">卡点问题</div>
+                    <div class="detail-value">${task.blockers || '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">描述</div>
+                    <div class="detail-value">${task.description || '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">创建时间</div>
+                    <div class="detail-value">${task.createdAt}</div>
+                </div>
+            `;
+            
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            var modal = document.getElementById('detailModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>软件测试平台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .header {
+            position: fixed;
+            top: 0;
+            right: 0;
+            padding: 20px 30px;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .user-info {
+            font-size: 14px;
+        }
+        .header-btn {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 20px;
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .header-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .admin-btn {
+            background: rgba(255, 193, 7, 0.3);
+            border-color: rgba(255, 193, 7, 0.5);
+        }
+        .container {
+            text-align: center;
+        }
+        .title {
+            font-size: 48px;
+            color: white;
+            margin-bottom: 60px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            font-size: 18px;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 50px;
+        }
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .menu-card {
+            background: white;
+            border-radius: 20px;
+            padding: 50px 30px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .menu-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .menu-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+        .menu-title {
+            font-size: 24px;
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .menu-desc {
+            font-size: 14px;
+            color: #666;
+        }
+        .menu-card.project:hover {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+        }
+        .menu-card.project:hover .menu-title,
+        .menu-card.project:hover .menu-desc {
+            color: white;
+        }
+        .menu-card.recruit:hover {
+            background: linear-gradient(135deg, #ff9800, #e68900);
+        }
+        .menu-card.recruit:hover .menu-title,
+        .menu-card.recruit:hover .menu-desc {
+            color: white;
+        }
+        .menu-card.auto:hover {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+        }
+        .menu-card.auto:hover .menu-title,
+        .menu-card.auto:hover .menu-desc {
+            color: white;
+        }
+        .footer {
+            margin-top: 60px;
+            color: rgba(255,255,255,0.7);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="user-info">👤 {{ session.name }}</div>
+        <a href="{{ url_for('change_password') }}" class="header-btn">🔐 修改密码</a>
+        {% if is_admin %}
+            <a href="{{ url_for('admin_dashboard') }}" class="header-btn admin-btn">⚙️ 管理后台</a>
+        {% endif %}
+        <a href="{{ url_for('logout') }}" class="header-btn">退出登录</a>
+    </div>
+
+    <div class="container">
+        <h1 class="title">💪 软件测试平台</h1>
+        <p class="subtitle">专业的测试任务管理与协作平台</p>
+
+        <div class="menu-grid">
+            <a href="{{ url_for('index') }}" class="menu-card project">
+                <div class="menu-icon">📋</div>
+                <div class="menu-title">测试项目</div>
+                <div class="menu-desc">项目任务登记与管理</div>
+            </a>
+
+            <a href="#" class="menu-card recruit" onclick="alert('招聘模块正在开发中...')">
+                <div class="menu-icon">👥</div>
+                <div class="menu-title">招聘</div>
+                <div class="menu-desc">测试人才招聘入口</div>
+            </a>
+
+            <a href="#" class="menu-card auto" onclick="alert('自动化测试模块正在开发中...')">
+                <div class="menu-icon">🤖</div>
+                <div class="menu-title">自动化测试</div>
+                <div class="menu-desc">自动化测试工具入口</div>
+            </a>
+        </div>
+
+        <div class="footer">
+            © 2026 软件测试平台 - 让测试更高效
+        </div>
+    </div>
+</body>
+</html>

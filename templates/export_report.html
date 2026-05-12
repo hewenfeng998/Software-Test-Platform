@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ year }}年{{ month }}月项目分析报告</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            padding: 30px;
+            background-color: #fff;
+        }
+        .report-header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+        }
+        .report-header h1 {
+            color: #667eea;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .report-header .date {
+            color: #666;
+            font-size: 14px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-card .value {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-card .label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .stat-card.total { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .stat-card.completed { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); }
+        .stat-card.progress { background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); }
+        .stat-card.blockers { background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%); }
+        .charts-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        .chart-card {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+        .chart-card h3 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 18px;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        .bar-container {
+            margin-bottom: 15px;
+        }
+        .bar-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .bar-fill {
+            height: 25px;
+            border-radius: 5px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+        }
+        .pie-chart {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .pie-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pie-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        .pie-label {
+            font-size: 14px;
+        }
+        .table-section {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+        .table-section h3 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 18px;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+        .status {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: white;
+        }
+        .status-pending { background-color: #ff9800; }
+        .status-progress { background-color: #2196F3; }
+        .status-completed { background-color: #4CAF50; }
+        .no-data {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+        .report-footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #888;
+            font-size: 14px;
+        }
+        @media print {
+            body { padding: 15px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .charts-section { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-header">
+        <h1>📊 项目分析报告</h1>
+        <p class="date">{{ year }}年{{ month }}月 | 生成时间：{{ current_time }}</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card total">
+            <div class="value">{{ total_tasks }}</div>
+            <div class="label">总任务数</div>
+        </div>
+        <div class="stat-card completed">
+            <div class="value">{{ status_counts.get('已完成', 0) }}</div>
+            <div class="label">已完成</div>
+        </div>
+        <div class="stat-card progress">
+            <div class="value">{{ avg_progress }}%</div>
+            <div class="label">平均进度</div>
+        </div>
+        <div class="stat-card blockers">
+            <div class="value">{{ blocker_count }}</div>
+            <div class="label">阻塞任务</div>
+        </div>
+    </div>
+
+    <div class="charts-section">
+        <div class="chart-card">
+            <h3>📈 状态分布</h3>
+            {% if status_counts %}
+                {% for status, count in status_counts.items() %}
+                <div class="bar-container">
+                    <div class="bar-label">
+                        <span>{{ status }}</span>
+                        <span>{{ count }} ({{ (count/total_tasks*100)|round(1) }}%)</span>
+                    </div>
+                    <div class="bar-fill" style="width: {{ (count/total_tasks*100)|round(1) }}%"></div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="no-data">暂无数据</p>
+            {% endif %}
+        </div>
+        <div class="chart-card">
+            <h3>🎯 优先级分布</h3>
+            {% if priority_counts %}
+                <div class="pie-chart">
+                    {% for priority, count in priority_counts.items() %}
+                    <div class="pie-item">
+                        <div class="pie-color" style="background: {% if priority == '高' %}#f44336{% elif priority == '中等' %}#ff9800{% else %}#4CAF50{% endif %}"></div>
+                        <span class="pie-label">{{ priority }}: {{ count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="no-data">暂无数据</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="table-section">
+        <h3>📋 任务列表</h3>
+        {% if tasks %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>任务标题</th>
+                        <th>状态</th>
+                        <th>优先级</th>
+                        <th>提交人</th>
+                        <th>测试人</th>
+                        <th>进度</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr>
+                        <td>{{ task.title }}</td>
+                        <td><span class="status status-{{ 'pending' if task.status == '待处理' else 'progress' if task.status == '进行中' else 'completed' }}">{{ task.status }}</span></td>
+                        <td>{{ task.priority }}</td>
+                        <td>{{ task.submitter }}</td>
+                        <td>{{ task.tester }}</td>
+                        <td>{{ task.progress }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="no-data">暂无任务数据</p>
+        {% endif %}
+    </div>
+
+    <div class="report-footer">
+        <p>软件测试平台 - 项目分析报告</p>
+    </div>
+</body>
+</html>

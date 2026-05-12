@@ -1,0 +1,705 @@
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
+from collections import defaultdict
+from functools import wraps
+import csv
+from io import StringIO
+from urllib.parse import quote
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tasks_v4.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = 'secret_key_here_2026'
+
+db = SQLAlchemy(app)
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(50), nullable=True)
+    is_active = db.Column(db.Boolean, default=False)
+    role = db.Column(db.String(20), default='viewer')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<User {self.username}>'
+    
+    def is_admin(self):
+        return self.role == 'admin'
+    
+    def can_edit(self):
+        return self.role in ['admin', 'editor']
+    
+    def can_delete(self):
+        return self.role == 'admin'
+    
+    def can_view(self):
+        return self.role in ['admin', 'editor', 'viewer']
+
+class Task(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), default='待处理')
+    priority = db.Column(db.String(20), default='中等')
+    submitter = db.Column(db.String(50), nullable=True)
+    tester = db.Column(db.String(50), nullable=True)
+    industry = db.Column(db.String(50), nullable=True)
+    jira_link = db.Column(db.String(255), nullable=True)
+    start_date = db.Column(db.Date, nullable=True)
+    end_date = db.Column(db.Date, nullable=True)
+    progress = db.Column(db.Integer, default=0)
+    blockers = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Task {self.title}>'
+
+INDUSTRY_OPTIONS = ['金融', '电商', '医疗', '教育', '科技', '制造', '零售', '其他']
+
+class LoginLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    username = db.Column(db.String(50), nullable=False)
+    login_time = db.Column(db.DateTime, default=datetime.utcnow)
+    ip_address = db.Column(db.String(50))
+
+    def __repr__(self):
+        return f'<LoginLog {self.username} {self.login_time}>'
+
+ROLES = [
+    ('admin', '管理员'),
+    ('editor', '编辑'),
+    ('viewer', '浏览')
+]
+
+with app.app_context():
+    db.create_all()
+    
+    from sqlalchemy import inspect
+    inspector = inspect(db.engine)
+    columns = inspector.get_columns('task')
+    column_names = [col['name'] for col in columns]
+    
+    if 'industry' not in column_names:
+        with db.engine.connect() as conn:
+            conn.execute(db.text('ALTER TABLE task ADD COLUMN industry VARCHAR(50)'))
+            conn.commit()
+    
+    if 'jira_link' not in column_names:
+        with db.engine.connect() as conn:
+            conn.execute(db.text('ALTER TABLE task ADD COLUMN jira_link VARCHAR(255)'))
+            conn.commit()
+    
+    if not User.query.filter_by(username='admin').first():
+        admin_user = User(username='admin', password='admin123', name='管理员', is_active=True, role='admin')
+        db.session.add(admin_user)
+        db.session.commit()
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        name = request.form['name']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+
+        if password != confirm_password:
+            flash('两次输入的密码不一致！')
+            return redirect(url_for('register'))
+
+        if User.query.filter_by(username=username).first():
+            flash('用户名已存在！')
+            return redirect(url_for('register'))
+
+        new_user = User(username=username, password=password, name=name, is_active=False, is_admin=False)
+        db.session.add(new_user)
+        db.session.commit()
+        flash('注册成功！请等待管理员审核')
+        return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+STATUS_OPTIONS = ['待处理', '进行中', '已完成']
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('请先登录！')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('请先登录！')
+            return redirect(url_for('login'))
+        user = User.query.get(session['user_id'])
+        if not user or not user.is_admin():
+            flash('无权限访问！')
+            return redirect(url_for('home'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def editor_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('请先登录！')
+            return redirect(url_for('login'))
+        user = User.query.get(session['user_id'])
+        if not user or not user.can_edit():
+            flash('无权限访问！')
+            return redirect(url_for('home'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        user = User.query.filter_by(username=username).first()
+        
+        if not user:
+            flash('用户名或密码错误！')
+            return render_template('login.html')
+            
+        if not user.is_active:
+            flash('账号未通过审核，请联系管理员！')
+            return render_template('login.html')
+            
+        if user.password == password:
+            session['user_id'] = user.id
+            session['username'] = user.username
+            session['name'] = user.name
+            session['role'] = user.role
+            session['is_admin'] = user.is_admin()
+            
+            ip_address = request.remote_addr
+            login_log = LoginLog(user_id=user.id, username=user.username, ip_address=ip_address)
+            db.session.add(login_log)
+            db.session.commit()
+            
+            flash(f'欢迎回来，{user.name}！')
+            return redirect(url_for('home'))
+        else:
+            flash('用户名或密码错误！')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('已退出登录')
+    return redirect(url_for('login'))
+
+@app.route('/')
+@login_required
+def home():
+    user = User.query.get(session['user_id'])
+    return render_template('home.html', is_admin=user.is_admin(), role=user.role)
+
+@app.route('/project')
+@login_required
+def index():
+    user = User.query.get(session['user_id'])
+    tasks = Task.query
+
+    start_filter = request.args.get('start_filter')
+    end_filter = request.args.get('end_filter')
+    status_filter = request.args.get('status_filter')
+    search_keyword = request.args.get('search')
+    tester_filter = request.args.get('tester_filter')
+
+    if search_keyword:
+        tasks = tasks.filter(Task.title.like(f'%{search_keyword}%'))
+
+    if tester_filter and tester_filter != 'all':
+        tasks = tasks.filter(Task.tester == tester_filter)
+
+    if start_filter:
+        try:
+            start_date = datetime.strptime(start_filter, '%Y-%m-%d').date()
+            tasks = tasks.filter(Task.start_date >= start_date)
+        except:
+            pass
+
+    if end_filter:
+        try:
+            end_date = datetime.strptime(end_filter, '%Y-%m-%d').date()
+            tasks = tasks.filter(Task.end_date <= end_date)
+        except:
+            pass
+
+    if status_filter and status_filter != 'all':
+        tasks = tasks.filter(Task.status == status_filter)
+
+    tasks = tasks.all()
+    
+    testers = Task.query.with_entities(Task.tester).distinct().filter(Task.tester.isnot(None)).all()
+    tester_list = [t[0] for t in testers]
+
+    return render_template('index.html', tasks=tasks,
+                           start_filter=start_filter, end_filter=end_filter,
+                           status_filter=status_filter,
+                           search_keyword=search_keyword,
+                           tester_filter=tester_filter,
+                           tester_list=tester_list,
+                           can_edit=user.can_edit(),
+                           can_delete=user.can_delete())
+
+@app.route('/add', methods=['GET', 'POST'])
+@editor_required
+def add_task():
+    if request.method == 'POST':
+        title = request.form['title']
+        description = request.form['description']
+        status = request.form['status']
+        priority = request.form['priority']
+        submitter = request.form['submitter']
+        tester = request.form['tester']
+        industry = request.form['industry']
+        jira_link = request.form['jira_link']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        progress = int(request.form['progress']) if request.form['progress'] else 0
+        blockers = request.form['blockers']
+
+        start_date_val = datetime.strptime(start_date, '%Y-%m-%d').date() if start_date else None
+        end_date_val = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else None
+
+        new_task = Task(
+            title=title,
+            description=description,
+            status=status,
+            priority=priority,
+            submitter=submitter,
+            tester=tester,
+            industry=industry,
+            jira_link=jira_link,
+            start_date=start_date_val,
+            end_date=end_date_val,
+            progress=progress,
+            blockers=blockers
+        )
+        db.session.add(new_task)
+        db.session.commit()
+        flash('任务添加成功！')
+        return redirect(url_for('index'))
+
+    return render_template('add.html', industries=INDUSTRY_OPTIONS)
+
+@app.route('/edit/<int:id>', methods=['GET', 'POST'])
+@editor_required
+def edit_task(id):
+    task = Task.query.get_or_404(id)
+
+    if request.method == 'POST':
+        task.title = request.form['title']
+        task.description = request.form['description']
+        task.status = request.form['status']
+        task.priority = request.form['priority']
+        task.submitter = request.form['submitter']
+        task.tester = request.form['tester']
+        task.industry = request.form['industry']
+        task.jira_link = request.form['jira_link']
+        task.start_date = datetime.strptime(request.form['start_date'], '%Y-%m-%d').date() if request.form['start_date'] else None
+        task.end_date = datetime.strptime(request.form['end_date'], '%Y-%m-%d').date() if request.form['end_date'] else None
+        task.progress = int(request.form['progress']) if request.form['progress'] else 0
+        task.blockers = request.form['blockers']
+        db.session.commit()
+        flash('任务更新成功！')
+        return redirect(url_for('index'))
+
+    return render_template('edit.html', task=task, industries=INDUSTRY_OPTIONS)
+
+@app.route('/delete/<int:id>')
+@login_required
+def delete_task(id):
+    user = User.query.get(session['user_id'])
+    
+    if not user.is_admin():
+        flash('您没有删除权限！')
+        return redirect(url_for('index'))
+    
+    task = Task.query.get_or_404(id)
+    db.session.delete(task)
+    db.session.commit()
+    flash('任务删除成功！')
+    return redirect(url_for('index'))
+
+@app.route('/analysis')
+@login_required
+def analysis():
+    period_type = request.args.get('period_type', 'monthly')
+    year = request.args.get('year', datetime.now().year)
+    month = request.args.get('month', datetime.now().month)
+    quarter = request.args.get('quarter', 1)
+    industry_filter = request.args.get('industry_filter', 'all')
+
+    try:
+        year = int(year)
+        month = int(month)
+        quarter = int(quarter)
+    except:
+        year = datetime.now().year
+        month = datetime.now().month
+        quarter = 1
+
+    if period_type == 'monthly':
+        start_date = datetime(year, month, 1)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+        period_name = f"{year}年{month}月"
+    elif period_type == 'quarterly':
+        quarter_start_month = (quarter - 1) * 3 + 1
+        start_date = datetime(year, quarter_start_month, 1)
+        if quarter_start_month + 3 > 12:
+            end_date = datetime(year + 1, quarter_start_month + 3 - 12, 1)
+        else:
+            end_date = datetime(year, quarter_start_month + 3, 1)
+        period_name = f"{year}年第{quarter}季度"
+    else:
+        start_date = datetime(year, 1, 1)
+        end_date = datetime(year + 1, 1, 1)
+        period_name = f"{year}年度"
+
+    tasks = Task.query.filter(
+        Task.created_at >= start_date,
+        Task.created_at < end_date
+    )
+
+    if industry_filter and industry_filter != 'all':
+        tasks = tasks.filter(Task.industry == industry_filter)
+    
+    tasks = tasks.all()
+
+    status_counts = defaultdict(int)
+    priority_counts = defaultdict(int)
+    industry_counts = defaultdict(int)
+    total_tasks = len(tasks)
+    avg_progress = 0
+    blocker_count = 0
+
+    for task in tasks:
+        status_counts[task.status] += 1
+        priority_counts[task.priority] += 1
+        if task.industry:
+            industry_counts[task.industry] += 1
+        avg_progress += task.progress
+        if task.blockers:
+            blocker_count += 1
+
+    if total_tasks > 0:
+        avg_progress = round(avg_progress / total_tasks, 1)
+
+    months = []
+    for m in range(1, 13):
+        months.append({'num': m, 'name': datetime(year, m, 1).strftime('%Y年%m月'), 'selected': m == month})
+
+    quarters = [
+        {'num': 1, 'name': '第一季度', 'selected': quarter == 1},
+        {'num': 2, 'name': '第二季度', 'selected': quarter == 2},
+        {'num': 3, 'name': '第三季度', 'selected': quarter == 3},
+        {'num': 4, 'name': '第四季度', 'selected': quarter == 4}
+    ]
+
+    years = []
+    for y in range(2024, 2041):
+        years.append({'num': y, 'selected': y == year})
+
+    all_industries = Task.query.with_entities(Task.industry).distinct().filter(Task.industry.isnot(None)).all()
+    industry_list = [i[0] for i in all_industries]
+
+    return render_template('analysis.html',
+                           tasks=tasks,
+                           year=year,
+                           month=month,
+                           quarter=quarter,
+                           period_type=period_type,
+                           period_name=period_name,
+                           industry_filter=industry_filter,
+                           industry_list=industry_list,
+                           status_counts=status_counts,
+                           priority_counts=priority_counts,
+                           industry_counts=industry_counts,
+                           total_tasks=total_tasks,
+                           avg_progress=avg_progress,
+                           blocker_count=blocker_count,
+                           months=months,
+                           quarters=quarters,
+                           years=years)
+
+@app.route('/tasks/export')
+@login_required
+def export_tasks():
+    tasks = Task.query.all()
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    
+    writer.writerow(['标题', '描述', '状态', '优先级', '送测人', '测试人员', '行业', 'JIRA链接', '开始时间', '结束时间', '进度', '卡点问题', '创建时间'])
+    
+    for task in tasks:
+        writer.writerow([
+            task.title,
+            task.description or '',
+            task.status,
+            task.priority,
+            task.submitter or '',
+            task.tester or '',
+            task.industry or '',
+            task.jira_link or '',
+            task.start_date.strftime('%Y-%m-%d') if task.start_date else '',
+            task.end_date.strftime('%Y-%m-%d') if task.end_date else '',
+            task.progress,
+            task.blockers or '',
+            task.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        ])
+    
+    output.seek(0)
+    response = make_response(output.getvalue().encode('utf-8'))
+    
+    filename = f'任务数据_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+    encoded_filename = quote(filename)
+    response.headers['Content-Disposition'] = f'attachment; filename="{encoded_filename}"'
+    response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+    
+    return response
+
+@app.route('/tasks/import', methods=['POST'])
+@login_required
+def import_tasks():
+    if 'file' not in request.files:
+        flash('请选择要导入的文件')
+        return redirect(url_for('index'))
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        flash('请选择要导入的文件')
+        return redirect(url_for('index'))
+    
+    if file and file.filename.endswith('.csv'):
+        try:
+            stream = StringIO(file.stream.read().decode('utf-8-sig'))
+            reader = csv.DictReader(stream)
+            
+            imported_count = 0
+            for row in reader:
+                try:
+                    start_date = datetime.strptime(row['开始时间'], '%Y-%m-%d').date() if row.get('开始时间') else None
+                    end_date = datetime.strptime(row['结束时间'], '%Y-%m-%d').date() if row.get('结束时间') else None
+                    
+                    new_task = Task(
+                        title=row['标题'],
+                        description=row.get('描述'),
+                        status=row.get('状态', '待处理'),
+                        priority=row.get('优先级', '中等'),
+                        submitter=row.get('送测人'),
+                        tester=row.get('测试人员'),
+                        industry=row.get('行业'),
+                        jira_link=row.get('JIRA链接'),
+                        start_date=start_date,
+                        end_date=end_date,
+                        progress=int(row['进度']) if row.get('进度') else 0,
+                        blockers=row.get('卡点问题')
+                    )
+                    db.session.add(new_task)
+                    imported_count += 1
+                except Exception as e:
+                    flash(f'导入第{imported_count + 1}行时出错: {str(e)}')
+            
+            db.session.commit()
+            flash(f'成功导入 {imported_count} 条任务数据')
+        except Exception as e:
+            flash(f'导入失败: {str(e)}')
+    else:
+        flash('只支持CSV格式文件')
+    
+    return redirect(url_for('index'))
+
+@app.route('/analysis/export')
+@login_required
+def export_analysis():
+    year = request.args.get('year', datetime.now().year)
+    month = request.args.get('month', datetime.now().month)
+
+    try:
+        year = int(year)
+        month = int(month)
+    except:
+        year = datetime.now().year
+        month = datetime.now().month
+
+    start_date = datetime(year, month, 1)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1)
+    else:
+        end_date = datetime(year, month + 1, 1)
+
+    tasks = Task.query.filter(
+        Task.created_at >= start_date,
+        Task.created_at < end_date
+    ).all()
+
+    status_counts = defaultdict(int)
+    priority_counts = defaultdict(int)
+    total_tasks = len(tasks)
+    avg_progress = 0
+    blocker_count = 0
+
+    for task in tasks:
+        status_counts[task.status] += 1
+        priority_counts[task.priority] += 1
+        avg_progress += task.progress
+        if task.blockers:
+            blocker_count += 1
+
+    if total_tasks > 0:
+        avg_progress = round(avg_progress / total_tasks, 1)
+
+    html_content = render_template('export_report.html',
+                                   tasks=tasks,
+                                   year=year,
+                                   month=month,
+                                   status_counts=status_counts,
+                                   priority_counts=priority_counts,
+                                   total_tasks=total_tasks,
+                                   avg_progress=avg_progress,
+                                   blocker_count=blocker_count,
+                                   current_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    
+    filename = f"report_{year}_{month}.html"
+    
+    response = make_response(html_content)
+    response.headers['Content-Type'] = 'text/html; charset=utf-8'
+    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    pending_users = User.query.filter_by(is_active=False).all()
+    active_users_list = User.query.filter_by(is_active=True).all()
+    login_logs = LoginLog.query.order_by(LoginLog.login_time.desc()).limit(50).all()
+    total_users = User.query.count()
+    active_users = User.query.filter_by(is_active=True).count()
+    
+    return render_template('admin.html',
+                           pending_users=pending_users,
+                           active_users_list=active_users_list,
+                           login_logs=login_logs,
+                           total_users=total_users,
+                           active_users=active_users)
+
+@app.route('/admin/approve/<int:user_id>')
+@admin_required
+def approve_user(user_id):
+    user = User.query.get_or_404(user_id)
+    user.is_active = True
+    db.session.commit()
+    flash(f'已批准用户 {user.username}')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/reject/<int:user_id>')
+@admin_required
+def reject_user(user_id):
+    user = User.query.get_or_404(user_id)
+    db.session.delete(user)
+    db.session.commit()
+    flash(f'已拒绝用户 {user.username}')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/delete_user/<int:user_id>')
+@admin_required
+def delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+    if user.role == 'admin':
+        flash('不能删除管理员账号！')
+        return redirect(url_for('admin_dashboard'))
+    db.session.delete(user)
+    db.session.commit()
+    flash(f'已删除用户 {user.username}')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/set_role/<int:user_id>', methods=['GET', 'POST'])
+@admin_required
+def set_role(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    if request.method == 'POST':
+        new_role = request.form['role']
+        if new_role in ['admin', 'editor', 'viewer']:
+            user.role = new_role
+            db.session.commit()
+            role_name = dict(ROLES).get(new_role, new_role)
+            flash(f'已将用户 {user.username} 的权限设置为 {role_name}')
+        else:
+            flash('无效的权限设置！')
+        return redirect(url_for('admin_dashboard'))
+    
+    return render_template('set_role.html', user=user, roles=ROLES)
+
+@app.route('/change_password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    user = User.query.get(session['user_id'])
+    
+    if request.method == 'POST':
+        old_password = request.form['old_password']
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+        
+        if user.password != old_password:
+            flash('原密码不正确！')
+            return redirect(url_for('change_password'))
+        
+        if new_password != confirm_password:
+            flash('两次输入的新密码不一致！')
+            return redirect(url_for('change_password'))
+        
+        if new_password == old_password:
+            flash('新密码不能与原密码相同！')
+            return redirect(url_for('change_password'))
+        
+        user.password = new_password
+        db.session.commit()
+        flash('密码修改成功！')
+        return redirect(url_for('home'))
+    
+    return render_template('change_password.html')
+
+@app.route('/admin/reset_password/<int:user_id>', methods=['GET', 'POST'])
+@admin_required
+def reset_password(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    if request.method == 'POST':
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+        
+        if new_password != confirm_password:
+            flash('两次输入的密码不一致！')
+            return redirect(url_for('reset_password', user_id=user_id))
+        
+        user.password = new_password
+        db.session.commit()
+        flash(f'已重置用户 {user.username} 的密码')
+        return redirect(url_for('admin_dashboard'))
+    
+    return render_template('reset_password.html', user=user)
+
+if __name__ == '__main__':
+    app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)

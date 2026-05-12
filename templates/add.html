@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加新任务</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        form div {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input[type="text"], input[type="date"], textarea, select, input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        .submit-btn {
+            flex: 1;
+            padding: 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .submit-btn:hover {
+            background-color: #45a049;
+        }
+        .cancel-btn {
+            flex: 1;
+            padding: 12px;
+            background-color: #ccc;
+            color: #333;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+        }
+        .cancel-btn:hover {
+            background-color: #bbb;
+        }
+        .home-btn {
+            flex: 1;
+            padding: 12px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+        }
+        .home-btn:hover {
+            background-color: #1976D2;
+        }
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .blockers-textarea {
+            min-height: 80px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>添加新任务</h1>
+        
+        <form method="POST">
+            <div>
+                <label for="title">任务标题</label>
+                <input type="text" id="title" name="title" required placeholder="请输入任务标题">
+            </div>
+            
+            <div>
+                <label for="description">任务描述</label>
+                <textarea id="description" name="description" placeholder="请输入任务描述"></textarea>
+            </div>
+            
+            <div class="row">
+                <div>
+                    <label for="submitter">送测人</label>
+                    <input type="text" id="submitter" name="submitter" placeholder="请输入送测人姓名">
+                </div>
+                <div>
+                    <label for="tester">测试人员</label>
+                    <input type="text" id="tester" name="tester" placeholder="请输入测试人员姓名">
+                </div>
+            </div>
+            
+            <div class="row">
+                <div>
+                    <label for="status">任务状态</label>
+                    <select id="status" name="status">
+                        <option value="待处理">待处理</option>
+                        <option value="进行中">进行中</option>
+                        <option value="已完成">已完成</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="priority">优先级</label>
+                    <select id="priority" name="priority">
+                        <option value="高">高</option>
+                        <option value="中等">中等</option>
+                        <option value="低">低</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div>
+                <label for="industry">所属行业</label>
+                <input type="text" id="industry" name="industry" placeholder="请输入所属行业（如：金融、电商、医疗等）">
+            </div>
+            
+            <div>
+                <label for="jira_link">JIRA链接</label>
+                <input type="url" id="jira_link" name="jira_link" placeholder="请输入JIRA问题链接（如：https://jira.example.com/browse/PROJ-123）">
+            </div>
+            
+            <div class="row">
+                <div>
+                    <label for="start_date">开始时间</label>
+                    <input type="date" id="start_date" name="start_date">
+                </div>
+                <div>
+                    <label for="end_date">结束时间</label>
+                    <input type="date" id="end_date" name="end_date">
+                </div>
+            </div>
+            
+            <div class="row">
+                <div>
+                    <label for="progress">完成进度 (%)</label>
+                    <input type="number" id="progress" name="progress" min="0" max="100" value="0">
+                </div>
+            </div>
+            
+            <div>
+                <label for="blockers">卡点问题</label>
+                <textarea id="blockers" name="blockers" class="blockers-textarea" placeholder="请输入当前卡点问题（如有）"></textarea>
+            </div>
+            
+            <div class="btn-group">
+                <button type="submit" class="submit-btn">添加任务</button>
+                <a href="{{ url_for('index') }}" class="cancel-btn">取消</a>
+                <a href="{{ url_for('home') }}" class="home-btn">返回主页</a>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
