@@ -48,6 +48,9 @@ class Task(db.Model):
     tester = db.Column(db.String(50), nullable=True)
     industry = db.Column(db.String(50), nullable=True)
     jira_link = db.Column(db.String(255), nullable=True)
+    test_result = db.Column(db.String(10), nullable=True)
+    test_round = db.Column(db.String(10), nullable=True)
+    di_value = db.Column(db.Float, nullable=True)
     start_date = db.Column(db.Date, nullable=True)
     end_date = db.Column(db.Date, nullable=True)
     progress = db.Column(db.Integer, default=0)
@@ -59,6 +62,8 @@ class Task(db.Model):
         return f'<Task {self.title}>'
 
 INDUSTRY_OPTIONS = ['金融', '电商', '医疗', '教育', '科技', '制造', '零售', '其他']
+TEST_RESULT_OPTIONS = ['PASS', 'FAIL', 'N/A']
+TEST_ROUND_OPTIONS = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10']
 
 class LoginLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -92,6 +97,21 @@ with app.app_context():
     if 'jira_link' not in column_names:
         with db.engine.connect() as conn:
             conn.execute(db.text('ALTER TABLE task ADD COLUMN jira_link VARCHAR(255)'))
+            conn.commit()
+    
+    if 'test_result' not in column_names:
+        with db.engine.connect() as conn:
+            conn.execute(db.text('ALTER TABLE task ADD COLUMN test_result VARCHAR(10)'))
+            conn.commit()
+    
+    if 'test_round' not in column_names:
+        with db.engine.connect() as conn:
+            conn.execute(db.text('ALTER TABLE task ADD COLUMN test_round VARCHAR(10)'))
+            conn.commit()
+    
+    if 'di_value' not in column_names:
+        with db.engine.connect() as conn:
+            conn.execute(db.text('ALTER TABLE task ADD COLUMN di_value FLOAT'))
             conn.commit()
     
     if not User.query.filter_by(username='admin').first():
@@ -268,6 +288,9 @@ def add_task():
         tester = request.form['tester']
         industry = request.form['industry']
         jira_link = request.form['jira_link']
+        test_result = request.form['test_result']
+        test_round = request.form['test_round']
+        di_value = float(request.form['di_value']) if request.form['di_value'] else None
         start_date = request.form['start_date']
         end_date = request.form['end_date']
         progress = int(request.form['progress']) if request.form['progress'] else 0
@@ -285,6 +308,9 @@ def add_task():
             tester=tester,
             industry=industry,
             jira_link=jira_link,
+            test_result=test_result if test_result else None,
+            test_round=test_round if test_round else None,
+            di_value=di_value,
             start_date=start_date_val,
             end_date=end_date_val,
             progress=progress,
@@ -295,7 +321,9 @@ def add_task():
         flash('任务添加成功！')
         return redirect(url_for('index'))
 
-    return render_template('add.html', industries=INDUSTRY_OPTIONS)
+    return render_template('add.html', industries=INDUSTRY_OPTIONS, 
+                           test_result_options=TEST_RESULT_OPTIONS,
+                           test_round_options=TEST_ROUND_OPTIONS)
 
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 @editor_required
@@ -311,6 +339,9 @@ def edit_task(id):
         task.tester = request.form['tester']
         task.industry = request.form['industry']
         task.jira_link = request.form['jira_link']
+        task.test_result = request.form['test_result'] if request.form['test_result'] else None
+        task.test_round = request.form['test_round'] if request.form['test_round'] else None
+        task.di_value = float(request.form['di_value']) if request.form['di_value'] else None
         task.start_date = datetime.strptime(request.form['start_date'], '%Y-%m-%d').date() if request.form['start_date'] else None
         task.end_date = datetime.strptime(request.form['end_date'], '%Y-%m-%d').date() if request.form['end_date'] else None
         task.progress = int(request.form['progress']) if request.form['progress'] else 0
@@ -319,7 +350,9 @@ def edit_task(id):
         flash('任务更新成功！')
         return redirect(url_for('index'))
 
-    return render_template('edit.html', task=task, industries=INDUSTRY_OPTIONS)
+    return render_template('edit.html', task=task, industries=INDUSTRY_OPTIONS,
+                           test_result_options=TEST_RESULT_OPTIONS,
+                           test_round_options=TEST_ROUND_OPTIONS)
 
 @app.route('/delete/<int:id>')
 @login_required
@@ -385,17 +418,21 @@ def analysis():
     tasks = tasks.all()
 
     status_counts = defaultdict(int)
-    priority_counts = defaultdict(int)
     industry_counts = defaultdict(int)
+    test_result_counts = defaultdict(int)
+    tester_counts = defaultdict(int)
     total_tasks = len(tasks)
     avg_progress = 0
     blocker_count = 0
 
     for task in tasks:
         status_counts[task.status] += 1
-        priority_counts[task.priority] += 1
         if task.industry:
             industry_counts[task.industry] += 1
+        if task.test_result:
+            test_result_counts[task.test_result] += 1
+        if task.tester:
+            tester_counts[task.tester] += 1
         avg_progress += task.progress
         if task.blockers:
             blocker_count += 1
@@ -431,8 +468,9 @@ def analysis():
                            industry_filter=industry_filter,
                            industry_list=industry_list,
                            status_counts=status_counts,
-                           priority_counts=priority_counts,
                            industry_counts=industry_counts,
+                           test_result_counts=test_result_counts,
+                           tester_counts=tester_counts,
                            total_tasks=total_tasks,
                            avg_progress=avg_progress,
                            blocker_count=blocker_count,
@@ -448,7 +486,7 @@ def export_tasks():
     output = StringIO()
     writer = csv.writer(output)
     
-    writer.writerow(['标题', '描述', '状态', '优先级', '送测人', '测试人员', '行业', 'JIRA链接', '开始时间', '结束时间', '进度', '卡点问题', '创建时间'])
+    writer.writerow(['标题', '描述', '状态', '优先级', '送测人', '测试人员', '行业', 'JIRA链接', '测试结果', '送测轮次', 'DI数值', '开始时间', '结束时间', '进度', '卡点问题', '创建时间'])
     
     for task in tasks:
         writer.writerow([
@@ -460,6 +498,9 @@ def export_tasks():
             task.tester or '',
             task.industry or '',
             task.jira_link or '',
+            task.test_result or '',
+            task.test_round or '',
+            task.di_value or '',
             task.start_date.strftime('%Y-%m-%d') if task.start_date else '',
             task.end_date.strftime('%Y-%m-%d') if task.end_date else '',
             task.progress,
@@ -501,19 +542,27 @@ def import_tasks():
                     start_date = datetime.strptime(row['开始时间'], '%Y-%m-%d').date() if row.get('开始时间') else None
                     end_date = datetime.strptime(row['结束时间'], '%Y-%m-%d').date() if row.get('结束时间') else None
                     
+                    def clean_text(text):
+                        if text:
+                            return text.replace('\n', ' ').replace('\r', ' ').replace('"', "'")
+                        return text
+                    
                     new_task = Task(
-                        title=row['标题'],
-                        description=row.get('描述'),
+                        title=clean_text(row['标题']),
+                        description=clean_text(row.get('描述')),
                         status=row.get('状态', '待处理'),
                         priority=row.get('优先级', '中等'),
-                        submitter=row.get('送测人'),
-                        tester=row.get('测试人员'),
-                        industry=row.get('行业'),
-                        jira_link=row.get('JIRA链接'),
+                        submitter=clean_text(row.get('送测人')),
+                        tester=clean_text(row.get('测试人员')),
+                        industry=clean_text(row.get('行业')),
+                        jira_link=clean_text(row.get('JIRA链接')),
+                        test_result=clean_text(row.get('测试结果')),
+                        test_round=clean_text(row.get('送测轮次')),
+                        di_value=float(row.get('DI数值')) if row.get('DI数值') else None,
                         start_date=start_date,
                         end_date=end_date,
                         progress=int(row['进度']) if row.get('进度') else 0,
-                        blockers=row.get('卡点问题')
+                        blockers=clean_text(row.get('卡点问题'))
                     )
                     db.session.add(new_task)
                     imported_count += 1

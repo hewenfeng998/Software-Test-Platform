@@ -6,7 +6,47 @@
     <title>项目任务登记平台</title>
     <style>
         * {
-            margin: 0;
+            margin: 0;<script>
+    var tasksData = [
+        {% for task in tasks %}
+        {
+            id: {{ task.id }},
+            title: "{{ task.title | replace('"', '\\"') }}",
+            description: "{{ task.description | replace('"', '\\"') if task.description else '' }}",
+            status: "{{ task.status }}",
+            priority: "{{ task.priority }}",
+            submitter: "{{ task.submitter if task.submitter else '' }}",
+            tester: "{{ task.tester if task.tester else '' }}",
+            industry: "{{ task.industry if task.industry else '' }}",
+            jiraLink: "{{ task.jira_link if task.jira_link else '' }}",
+            startDate: "{{ task.start_date.strftime('%Y-%m-%d') if task.start_date else '' }}",
+            endDate: "{{ task.end_date.strftime('%Y-%m-%d') if task.end_date else '' }}",
+            progress: {{ task.progress }},
+            blockers: "{{ task.blockers | replace('"', '\\"') if task.blockers else '' }}",
+            createdAt: "{{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') }}"
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    function showDetail(taskId) {
+        var task = tasksData.find(function(t) { return t.id === taskId; });
+        if (!task) return;
+        
+        var modal = document.getElementById('detailModal');
+        var title = document.getElementById('modalTitle');
+        var body = document.getElementById('modalBody');
+        
+        title.innerHTML = task.title;
+        
+        body.innerHTML = '<div class="detail-row"><div class="detail-label">状态</div><div class="detail-value">' + task.status + '</div></div><div class="detail-row"><div class="detail-label">优先级</div><div class="detail-value">' + task.priority + '</div></div><div class="detail-row"><div class="detail-label">所属行业</div><div class="detail-value">' + (task.industry || '-') + '</div></div><div class="detail-row"><div class="detail-label">送测人</div><div class="detail-value">' + (task.submitter || '-') + '</div></div><div class="detail-row"><div class="detail-label">测试人员</div><div class="detail-value">' + (task.tester || '-') + '</div></div><div class="detail-row"><div class="detail-label">时间范围</div><div class="detail-value">' + (task.startDate || '-') + ' ~ ' + (task.endDate || '-') + '</div></div><div class="detail-row"><div class="detail-label">完成进度</div><div class="detail-value">' + task.progress + '%</div></div><div class="detail-row"><div class="detail-label">卡点问题</div><div class="detail-value">' + (task.blockers || '-') + '</div></div><div class="detail-row"><div class="detail-label">描述</div><div class="detail-value">' + (task.description || '-') + '</div></div><div class="detail-row"><div class="detail-label">创建时间</div><div class="detail-value">' + task.createdAt + '</div></div>';
+        
+        modal.style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('detailModal').style.display = 'none';
+    }
+</script>
             padding: 0;
             box-sizing: border-box;
         }
@@ -133,9 +173,16 @@
         th, td {
             padding: 12px 15px;
             text-align: left;
-            border-bottom: 1px solid #ddd;
             word-wrap: break-word;
             max-width: 150px;
+            vertical-align: middle;
+        }
+        tbody tr {
+            border-bottom: 1px solid #ddd;
+            display: table-row;
+        }
+        tbody tr:last-child {
+            border-bottom: 1px solid #ddd;
         }
         th {
             background-color: #f2f2f2;
@@ -153,6 +200,15 @@
         .status-pending { background-color: #ff9800; color: white; }
         .status-progress { background-color: #2196F3; color: white; }
         .status-completed { background-color: #4CAF50; color: white; }
+        .test-result {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .result-pass { background-color: #4CAF50; color: white; }
+        .result-fail { background-color: #f44336; color: white; }
+        .result-na { background-color: #9e9e9e; color: white; }
         .progress-bar {
             width: 100px;
             height: 20px;
@@ -176,8 +232,12 @@
         }
         .actions {
             display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
+            flex-wrap: nowrap;
+            gap: 4px;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 8px 0;
         }
         .actions a {
             text-decoration: none;
@@ -249,14 +309,16 @@
         }
         .modal-content {
             background-color: #fefefe;
-            margin: 5% auto;
+            margin: 3% auto;
             padding: 30px;
             border: 1px solid #888;
-            width: 90%;
-            max-width: 600px;
+            width: 95%;
+            max-width: 900px;
+            max-height: 90vh;
             border-radius: 10px;
             position: relative;
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow-y: auto;
         }
         .modal-header {
             padding-bottom: 20px;
@@ -373,7 +435,7 @@
                 <button type="submit" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">导入CSV</button>
                 <button type="button" onclick="document.getElementById('importForm').style.display = 'none'" style="padding: 8px 16px; background: #ccc; color: #333; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">取消</button>
             </form>
-            <p style="margin-top: 10px; font-size: 12px; color: #666;">支持CSV格式，需包含标题行：标题,描述,状态,优先级,送测人,测试人员,行业,JIRA链接,开始时间,结束时间,进度,卡点问题</p>
+            <p style="margin-top: 10px; font-size: 12px; color: #666;">支持CSV格式，需包含标题行：标题,描述,状态,优先级,送测人,测试人员,行业,JIRA链接,测试结果,送测轮次,DI数值,开始时间,结束时间,进度,卡点问题</p>
         </div>
         
         <form class="filter-form" method="GET">
@@ -412,9 +474,10 @@
                         <th>标题</th>
                         <th>测试人员</th>
                         <th>状态</th>
+                        <th>测试结果</th>
+                        <th>DI数值</th>
                         <th>完成进度</th>
                         <th>时间范围</th>
-                        <th>卡点问题</th>
                         <th>操作</th>
                     </tr>
                 </thead>
@@ -429,6 +492,16 @@
                                 {{ task.status }}
                             </span>
                         </td>
+                        <td>
+                            {% if task.test_result %}
+                            <span class="test-result {% if task.test_result == 'PASS' %}result-pass{% elif task.test_result == 'FAIL' %}result-fail{% else %}result-na{% endif %}">
+                                {{ task.test_result }}
+                            </span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ task.di_value or '-' }}</td>
                         <td>
                             <div class="progress-bar">
                                 <div class="progress-fill" style="width: {{ task.progress }}%"></div>
@@ -448,7 +521,6 @@
                                 -
                             {% endif %}
                         </td>
-                        <td>{% if task.blockers %}<span class="blockers">{{ task.blockers[:30] }}{% if task.blockers|length > 30 %}...{% endif %}</span>{% else %}-{% endif %}</td>
                         <td class="actions">
                             <a href="#" class="detail-btn" onclick="showDetail({{ task.id }})">详情</a>
                             <a href="{{ url_for('edit_task', id=task.id) }}" class="edit-btn">编辑</a>
@@ -487,19 +559,22 @@
             {% for task in tasks %}
             {
                 id: {{ task.id }},
-                title: "{{ task.title | replace('"', '\\"') }}",
-                description: "{{ task.description | replace('"', '\\"') if task.description else '' }}",
-                status: "{{ task.status }}",
-                priority: "{{ task.priority }}",
-                submitter: "{{ task.submitter if task.submitter else '' }}",
-                tester: "{{ task.tester if task.tester else '' }}",
-                industry: "{{ task.industry if task.industry else '' }}",
-                jiraLink: "{{ task.jira_link if task.jira_link else '' }}",
-                startDate: "{{ task.start_date.strftime('%Y-%m-%d') if task.start_date else '' }}",
-                endDate: "{{ task.end_date.strftime('%Y-%m-%d') if task.end_date else '' }}",
+                title: {{ task.title | tojson }},
+                description: {{ (task.description or '') | tojson }},
+                status: {{ task.status | tojson }},
+                priority: {{ task.priority | tojson }},
+                submitter: {{ (task.submitter or '') | tojson }},
+                tester: {{ (task.tester or '') | tojson }},
+                industry: {{ (task.industry or '') | tojson }},
+                jiraLink: {{ (task.jira_link or '') | tojson }},
+                testResult: {{ (task.test_result or '') | tojson }},
+                testRound: {{ (task.test_round or '') | tojson }},
+                diValue: {{ task.di_value or 'null' }},
+                startDate: {{ (task.start_date.strftime('%Y-%m-%d') if task.start_date else '') | tojson }},
+                endDate: {{ (task.end_date.strftime('%Y-%m-%d') if task.end_date else '') | tojson }},
                 progress: {{ task.progress }},
-                blockers: "{{ task.blockers | replace('"', '\\"') if task.blockers else '' }}",
-                createdAt: "{{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') }}"
+                blockers: {{ (task.blockers or '') | tojson }},
+                createdAt: {{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') | tojson }}
             }{% if not loop.last %},{% endif %}
             {% endfor %}
         ];
@@ -535,6 +610,18 @@
                 <div class="detail-row">
                     <div class="detail-label">JIRA链接</div>
                     <div class="detail-value">${task.jiraLink ? '<a href="' + task.jiraLink + '" target="_blank" style="color: #2196F3; text-decoration: underline;">' + task.jiraLink + '</a>' : '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">测试结果</div>
+                    <div class="detail-value">${task.testResult ? '<span class="detail-test-result ' + (task.testResult === 'PASS' ? 'result-pass' : task.testResult === 'FAIL' ? 'result-fail' : 'result-na') + '">' + task.testResult + '</span>' : '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">送测轮次</div>
+                    <div class="detail-value">${task.testRound || '-'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">DI数值</div>
+                    <div class="detail-value">${task.diValue !== null && task.diValue !== undefined ? task.diValue : '-'}</div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">送测人</div>
