@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from collections import defaultdict
@@ -6,6 +6,10 @@ from functools import wraps
 import csv
 from io import StringIO
 from urllib.parse import quote
+import requests
+import json
+
+FEISHU_WEBHOOK_URL = 'https://open.feishu.cn/open-apis/bot/v2/hook/deea26d5-c11e-4c21-88d1-2f25d29b1d88'
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tasks_v4.db'
@@ -80,6 +84,36 @@ ROLES = [
     ('editor', '编辑'),
     ('viewer', '浏览')
 ]
+
+def send_feishu_notification(task):
+    """发送飞书群机器人通知"""
+    try:
+        title = task.title[:50] + '...' if len(task.title) > 50 else task.title
+        content = f"""
+**📋 测试任务提醒**
+
+**任务标题**: {title}
+**送测人**: {task.submitter or '-'}
+**测试人员**: {task.tester or '-'}
+**所属行业**: {task.industry or '-'}
+**测试结果**: {task.test_result or '-'}
+**送测轮次**: {task.test_round or '-'}
+**DI数值**: {task.di_value or '-'}
+**测试时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        """.strip()
+        
+        payload = {
+            "msg_type": "text",
+            "content": {
+                "text": content
+            }
+        }
+        
+        response = requests.post(FEISHU_WEBHOOK_URL, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
+        return response.status_code == 200
+    except Exception as e:
+        print(f"发送飞书消息失败: {str(e)}")
+        return False
 
 with app.app_context():
     db.create_all()
@@ -272,6 +306,7 @@ def index():
                            status_filter=status_filter,
                            search_keyword=search_keyword,
                            tester_filter=tester_filter,
+                           is_admin=user.is_admin(),
                            tester_list=tester_list,
                            can_edit=user.can_edit(),
                            can_delete=user.can_delete())
@@ -729,6 +764,16 @@ def change_password():
         return redirect(url_for('home'))
     
     return render_template('change_password.html')
+
+@app.route('/task/<int:task_id>/notify', methods=['POST'])
+@admin_required
+def send_task_notification(task_id):
+    task = Task.query.get_or_404(task_id)
+    success = send_feishu_notification(task)
+    if success:
+        return jsonify({'success': True, 'message': '提醒已发送到飞书群'})
+    else:
+        return jsonify({'success': False, 'message': '发送失败，请稍后重试'})
 
 @app.route('/admin/reset_password/<int:user_id>', methods=['GET', 'POST'])
 @admin_required
