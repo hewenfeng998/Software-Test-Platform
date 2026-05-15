@@ -419,6 +419,31 @@ def wiki():
 def ai():
     return render_template('ai.html')
 
+@app.route('/gantt')
+@login_required
+def gantt():
+    tasks = Task.query.all()
+    tester_tasks = {}
+    
+    for task in tasks:
+        tester = task.tester or '未分配'
+        if tester not in tester_tasks:
+            tester_tasks[tester] = []
+        tester_tasks[tester].append({
+            'id': str(task.id),
+            'name': task.title,
+            'start': task.start_date.strftime('%Y-%m-%d') if task.start_date else None,
+            'end': task.end_date.strftime('%Y-%m-%d') if task.end_date else None,
+            'progress': task.progress or 0,
+            'status': task.status,
+            'title_full': task.title,
+            'test_result': task.test_result or '-',
+            'test_round': task.test_round or '-',
+            'di_value': task.di_value or '-'
+        })
+    
+    return render_template('gantt.html', tester_tasks=tester_tasks)
+
 @app.route('/analysis')
 @login_required
 def analysis():

@@ -137,6 +137,19 @@
         .analysis-btn:hover {
             background-color: #7b1fa2;
         }
+        .gantt-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #10B981;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .gantt-btn:hover {
+            background-color: #059669;
+        }
         .export-btn {
             display: inline-block;
             padding: 10px 20px;
@@ -423,6 +436,7 @@
             <a href="{{ url_for('home') }}" class="home-btn">🏠 返回主页</a>
             <a href="{{ url_for('add_task') }}" class="add-btn">+ 添加新任务</a>
             <a href="{{ url_for('analysis') }}" class="analysis-btn">📊 数据分析</a>
+            <a href="{{ url_for('gantt') }}" class="gantt-btn">📈 甘特图</a>
             <a href="{{ url_for('export_tasks') }}" class="export-btn">📥 导出数据</a>
             <button class="import-btn" onclick="document.getElementById('importForm').style.display = 'block'">📤 导入数据</button>
         </div>

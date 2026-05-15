@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目甘特图</title>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/min/moment.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', sans-serif; background-color: #f5f7fa; min-height: 100vh; }
+        .header { background-color: #fff; border-bottom: 1px solid #eee; padding: 15px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 20px; }
+        .back-btn { padding: 10px 20px; background-color: #2196F3; color: white; text-decoration: none; border-radius: 4px; font-size: 14px; }
+        .title { font-size: 20px; font-weight: bold; color: #333; }
+        .gantt-container { max-width: 1400px; margin: 20px auto; background-color: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
+        .month-nav { display: flex; align-items: center; gap: 15px; padding: 15px 30px; border-bottom: 1px solid #eee; background-color: #fafafa; }
+        .nav-btn { width: 36px; height: 36px; border: none; background-color: #fff; border-radius: 50%; cursor: pointer; font-size: 18px; }
+        .month-title { font-size: 16px; font-weight: bold; color: #333; }
+        .today-btn { padding: 8px 16px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .legend { display: flex; gap: 30px; padding: 15px 30px; border-bottom: 1px solid #eee; }
+        .legend-item { display: flex; align-items: center; gap: 8px; }
+        .legend-color { width: 20px; height: 20px; border-radius: 4px; }
+        .gantt-wrapper { display: flex; overflow-x: auto; }
+        .gantt-wrapper::-webkit-scrollbar { display: none; }
+        .gantt-left { width: 180px; flex-shrink: 0; border-right: 1px solid #eee; }
+        .gantt-left-header { padding: 12px 15px; background-color: #f8f9fa; font-weight: bold; color: #333; border-bottom: 1px solid #eee; height: 44px; }
+        .tester-item { padding: 10px 15px; background-color: #fff; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #eee; }
+        .tester-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 13px; font-weight: bold; flex-shrink: 0; }
+        .tester-name { font-weight: 500; color: #333; font-size: 14px; }
+        .gantt-right { flex: 1; }
+        .gantt-right-header { display: flex; background-color: #f8f9fa; border-bottom: 1px solid #eee; }
+        .gantt-date-cell { width: 45px; padding: 8px 5px; text-align: center; font-size: 12px; color: #666; border-right: 1px solid #eee; flex-shrink: 0; height: 44px; display: flex; align-items: center; justify-content: center; }
+        .gantt-date-cell.today { background-color: #e3f2fd; font-weight: bold; color: #1976D2; }
+        .gantt-date-cell.weekend { background-color: #fafafa; }
+        .gantt-right-body { }
+        .tasks-row { display: flex; border-bottom: 1px solid #eee; position: relative; height: 44px; }
+        .tasks-cell { width: 45px; height: 44px; border-right: 1px dashed #eee; flex-shrink: 0; background-color: #fff; }
+        .tasks-cell.today-column { background-color: rgba(33, 150, 243, 0.05); }
+        .task-bar { position: absolute; top: 5px; height: 34px; border-radius: 6px; padding: 5px 8px; font-size: 11px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; z-index: 10; display: flex; align-items: center; }
+        .task-bar.pending { background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%); }
+        .task-bar.progress { background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); }
+        .task-bar.completed { background: linear-gradient(135deg, #10B981 0%, #059669 100%); }
+        .tooltip { display: none; position: fixed; background-color: #333; color: white; padding: 12px; border-radius: 8px; font-size: 13px; z-index: 1000; min-width: 250px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="{{ url_for('index') }}" class="back-btn">← 返回项目列表</a>
+        <span class="title">📊 项目甘特图</span>
+    </div>
+
+    <div class="gantt-container">
+        <div class="month-nav">
+            <button class="nav-btn" onclick="changeMonth(-1)">◀</button>
+            <span class="month-title" id="monthTitle">2026年5月</span>
+            <button class="nav-btn" onclick="changeMonth(1)">▶</button>
+            <button class="today-btn" onclick="goToday()">回到今天</button>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);"></div>
+                <span style="font-size:14px;color:#666;">待处理</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);"></div>
+                <span style="font-size:14px;color:#666;">进行中</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%);"></div>
+                <span style="font-size:14px;color:#666;">已完成</span>
+            </div>
+        </div>
+
+        <div class="gantt-wrapper">
+            <div class="gantt-left">
+                <div class="gantt-left-header">测试人员</div>
+                {% for tester, tasks in tester_tasks.items() %}
+                    <div class="tester-item" style="min-height: {{ tasks|length * 44 }}px; flex-direction: column; justify-content: center;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="tester-avatar">{{ tester[0] if tester else '?' }}</div>
+                            <span class="tester-name">{{ tester }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="gantt-right">
+                <div class="gantt-right-header" id="datesHeader"></div>
+                <div class="gantt-right-body" id="rightBody">
+                    {% for tester, tasks in tester_tasks.items() %}
+                        {% for task in tasks %}
+                            <div class="tasks-row" data-task='{{ task | tojson | safe }}'>
+                            </div>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        var currentDate = moment();
+        var todayIndex = -1;
+        var totalDays = 0;
+
+        var colorMap = { '待处理': 'pending', '进行中': 'progress', '已完成': 'completed' };
+
+        function renderDates() {
+            var header = document.getElementById('datesHeader');
+            header.innerHTML = '';
+            todayIndex = -1;
+
+            var daysInMonth = currentDate.daysInMonth();
+            totalDays = daysInMonth;
+
+            for (var i = 1; i <= daysInMonth; i++) {
+                var date = moment(currentDate.year() + '-' + (currentDate.month() + 1) + '-' + i);
+                var isToday = date.isSame(moment(), 'day');
+                var isWeekend = date.day() === 0 || date.day() === 6;
+
+                var cell = document.createElement('div');
+                cell.className = 'gantt-date-cell';
+                if (isToday) { cell.classList.add('today'); todayIndex = i - 1; }
+                if (isWeekend) cell.classList.add('weekend');
+                cell.textContent = i;
+                header.appendChild(cell);
+            }
+        }
+
+        function renderTasks() {
+            var rows = document.querySelectorAll('.tasks-row');
+            var daysInMonth = currentDate.daysInMonth();
+            
+            rows.forEach(function(row) {
+                row.innerHTML = '';
+                
+                for (var i = 1; i <= daysInMonth; i++) {
+                    var cell = document.createElement('div');
+                    cell.className = 'tasks-cell';
+                    if (i - 1 === todayIndex) cell.classList.add('today-column');
+                    row.appendChild(cell);
+                }
+                
+                var taskData = row.getAttribute('data-task');
+                if (!taskData) return;
+                
+                var task = JSON.parse(taskData);
+
+                var startDate = task.start ? moment(task.start) : moment();
+                var endDate = task.end ? moment(task.end) : moment().add(7, 'days');
+                
+                var startOffset = startDate.date() - 1;
+                var duration = endDate.diff(startDate, 'days') + 1;
+
+                if (startDate.month() !== currentDate.month()) {
+                    if (endDate.month() === currentDate.month()) {
+                        duration = endDate.date();
+                        startOffset = 0;
+                    } else {
+                        return;
+                    }
+                }
+                
+                if (endDate.month() !== currentDate.month()) {
+                    duration = daysInMonth - startOffset;
+                }
+
+                if (startOffset < 0) { duration += startOffset; startOffset = 0; }
+                if (startOffset >= daysInMonth) return;
+                if (startOffset + duration > daysInMonth) duration = daysInMonth - startOffset;
+
+                var taskBar = document.createElement('div');
+                var statusClass = colorMap[task.status] || 'pending';
+                taskBar.className = 'task-bar ' + statusClass;
+                taskBar.textContent = task.name.length > 15 ? task.name.substring(0, 15) + '...' : task.name;
+                taskBar.style.left = (startOffset * 45 + 3) + 'px';
+                taskBar.style.width = (duration * 45 - 6) + 'px';
+
+                taskBar.addEventListener('mouseenter', function(e) {
+                    var tooltip = document.getElementById('tooltip');
+                    tooltip.innerHTML = `<div style="font-weight:bold;margin-bottom:8px;">${task.title_full}</div>
+                        <div><span style="color:#999;">状态:</span> ${task.status}</div>
+                        <div><span style="color:#999;">进度:</span> ${task.progress}%</div>
+                        <div><span style="color:#999;">开始:</span> ${task.start || '未设置'}</div>
+                        <div><span style="color:#999;">结束:</span> ${task.end || '未设置'}</div>
+                        <div><span style="color:#999;">测试结果:</span> ${task.test_result || '-'}</div>
+                        <div><span style="color:#999;">送测轮次:</span> ${task.test_round || '-'}</div>
+                        <div><span style="color:#999;">DI数值:</span> ${task.di_value || '-'}</div>`;
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (e.clientX + 10) + 'px';
+                    tooltip.style.top = (e.clientY + 10) + 'px';
+                });
+                taskBar.addEventListener('mouseleave', function() {
+                    document.getElementById('tooltip').style.display = 'none';
+                });
+
+                row.appendChild(taskBar);
+            });
+        }
+
+        function changeMonth(delta) {
+            currentDate.add(delta, 'month');
+            document.getElementById('monthTitle').textContent = currentDate.format('YYYY年MM月');
+            renderDates();
+            renderTasks();
+        }
+
+        function goToday() {
+            currentDate = moment();
+            document.getElementById('monthTitle').textContent = currentDate.format('YYYY年MM月');
+            renderDates();
+            renderTasks();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            renderDates();
+            renderTasks();
+        });
+    </script>
+</body>
+</html>
