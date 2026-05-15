@@ -484,6 +484,7 @@
             <table>
                 <thead>
                     <tr>
+                        <th style="width: 60px;">序号</th>
                         <th>行业</th>
                         <th>标题</th>
                         <th>测试人员</th>
@@ -498,6 +499,7 @@
                 <tbody>
                     {% for task in tasks %}
                     <tr>
+                        <td style="font-weight: bold; color: #666;">{{ (current_page - 1) * 10 + loop.index }}</td>
                         <td>{{ task.industry or '-' }}</td>
                         <td>{{ task.title }}</td>
                         <td>{{ task.tester or '-' }}</td>
@@ -551,6 +553,26 @@
         </div>
         {% else %}
             <div class="no-tasks">暂无任务，请添加新任务</div>
+        {% endif %}
+        
+        {% if pagination and pagination.pages > 1 %}
+        <div style="text-align: center; margin-top: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <div style="display: inline-flex; align-items: center; gap: 10px;">
+                {% if pagination.has_prev %}
+                <a href="?page={{ pagination.prev_num }}{% if search_keyword %}&search={{ search_keyword }}{% endif %}{% if tester_filter and tester_filter != 'all' %}&tester_filter={{ tester_filter }}{% endif %}{% if status_filter and status_filter != 'all' %}&status_filter={{ status_filter }}{% endif %}{% if start_filter %}&start_filter={{ start_filter }}{% endif %}{% if end_filter %}&end_filter={{ end_filter }}{% endif %}" style="padding: 8px 16px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">上一页</a>
+                {% else %}
+                <span style="padding: 8px 16px; background: #eee; color: #999; border-radius: 4px; font-size: 14px;">上一页</span>
+                {% endif %}
+                
+                <span style="color: #666; font-size: 14px;">第 {{ current_page }} / {{ pagination.pages }} 页</span>
+                
+                {% if pagination.has_next %}
+                <a href="?page={{ pagination.next_num }}{% if search_keyword %}&search={{ search_keyword }}{% endif %}{% if tester_filter and tester_filter != 'all' %}&tester_filter={{ tester_filter }}{% endif %}{% if status_filter and status_filter != 'all' %}&status_filter={{ status_filter }}{% endif %}{% if start_filter %}&start_filter={{ start_filter }}{% endif %}{% if end_filter %}&end_filter={{ end_filter }}{% endif %}" style="padding: 8px 16px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">下一页</a>
+                {% else %}
+                <span style="padding: 8px 16px; background: #eee; color: #999; border-radius: 4px; font-size: 14px;">下一页</span>
+                {% endif %}
+            </div>
+        </div>
         {% endif %}
     </div>
 

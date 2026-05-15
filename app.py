@@ -272,6 +272,8 @@ def index():
     status_filter = request.args.get('status_filter')
     search_keyword = request.args.get('search')
     tester_filter = request.args.get('tester_filter')
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
 
     if search_keyword:
         tasks = tasks.filter(Task.title.like(f'%{search_keyword}%'))
@@ -296,12 +298,13 @@ def index():
     if status_filter and status_filter != 'all':
         tasks = tasks.filter(Task.status == status_filter)
 
-    tasks = tasks.all()
+    tasks = tasks.order_by(Task.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     
     testers = Task.query.with_entities(Task.tester).distinct().filter(Task.tester.isnot(None)).all()
     tester_list = [t[0] for t in testers]
 
-    return render_template('index.html', tasks=tasks,
+    return render_template('index.html', tasks=tasks.items,
+                           pagination=tasks,
                            start_filter=start_filter, end_filter=end_filter,
                            status_filter=status_filter,
                            search_keyword=search_keyword,
@@ -309,7 +312,8 @@ def index():
                            is_admin=user.is_admin(),
                            tester_list=tester_list,
                            can_edit=user.can_edit(),
-                           can_delete=user.can_delete())
+                           can_delete=user.can_delete(),
+                           current_page=page)
 
 @app.route('/add', methods=['GET', 'POST'])
 @editor_required
