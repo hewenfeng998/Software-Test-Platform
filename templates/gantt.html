@@ -19,8 +19,11 @@
         .legend { display: flex; gap: 30px; padding: 15px 30px; border-bottom: 1px solid #eee; }
         .legend-item { display: flex; align-items: center; gap: 8px; }
         .legend-color { width: 20px; height: 20px; border-radius: 4px; }
-        .gantt-wrapper { display: flex; overflow-x: auto; }
-        .gantt-wrapper::-webkit-scrollbar { display: none; }
+        .gantt-wrapper { display: flex; overflow-x: auto; max-width: 100%; }
+        .gantt-wrapper::-webkit-scrollbar { height: 8px; }
+        .gantt-wrapper::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .gantt-wrapper::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        .gantt-wrapper::-webkit-scrollbar-thumb:hover { background: #a1a1a1; }
         .gantt-left { width: 180px; flex-shrink: 0; border-right: 1px solid #eee; }
         .gantt-left-header { padding: 12px 15px; background-color: #f8f9fa; font-weight: bold; color: #333; border-bottom: 1px solid #eee; height: 44px; }
         .tester-item { padding: 10px 15px; background-color: #fff; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #eee; }
