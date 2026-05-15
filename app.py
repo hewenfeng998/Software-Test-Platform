@@ -404,6 +404,21 @@ def delete_task(id):
     flash('任务删除成功！')
     return redirect(url_for('index'))
 
+@app.route('/automation')
+@login_required
+def automation():
+    return render_template('automation.html')
+
+@app.route('/wiki')
+@login_required
+def wiki():
+    return render_template('wiki.html')
+
+@app.route('/ai')
+@login_required
+def ai():
+    return render_template('ai.html')
+
 @app.route('/analysis')
 @login_required
 def analysis():

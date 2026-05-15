@@ -64,9 +64,9 @@
         }
         .menu-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 30px;
-            max-width: 900px;
+            max-width: 1200px;
             margin: 0 auto;
         }
         .menu-card {
@@ -116,6 +116,13 @@
         .menu-card.auto:hover .menu-desc {
             color: white;
         }
+        .menu-card.ai:hover {
+            background: linear-gradient(135deg, #9c27b0, #7b1fa2);
+        }
+        .menu-card.ai:hover .menu-title,
+        .menu-card.ai:hover .menu-desc {
+            color: white;
+        }
         .footer {
             margin-top: 60px;
             color: rgba(255,255,255,0.7);
@@ -144,16 +151,22 @@
                 <div class="menu-desc">项目任务登记与管理</div>
             </a>
 
-            <a href="#" class="menu-card recruit" onclick="alert('招聘模块正在开发中...')">
+            <a href="{{ url_for('wiki') }}" class="menu-card recruit">
                 <div class="menu-icon">👥</div>
                 <div class="menu-title">招聘</div>
                 <div class="menu-desc">测试人才招聘入口</div>
             </a>
 
-            <a href="#" class="menu-card auto" onclick="alert('自动化测试模块正在开发中...')">
+            <a href="{{ url_for('automation') }}" class="menu-card auto">
                 <div class="menu-icon">🤖</div>
                 <div class="menu-title">自动化测试</div>
                 <div class="menu-desc">自动化测试工具入口</div>
+            </a>
+
+            <a href="{{ url_for('ai') }}" class="menu-card ai">
+                <div class="menu-icon">🧠</div>
+                <div class="menu-title">人工智能</div>
+                <div class="menu-desc">AI工具集成入口</div>
             </a>
         </div>
 

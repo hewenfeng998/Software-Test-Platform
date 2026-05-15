@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人工智能工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #f5f7fa;
+            min-height: 100vh;
+        }
+        .header {
+            background-color: #fff;
+            border-bottom: 1px solid #eee;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .back-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-right: 20px;
+        }
+        .back-btn:hover {
+            background-color: #1976D2;
+        }
+        .title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .ai-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        .ai-card {
+            background-color: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: 1px solid #eee;
+        }
+        .ai-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .ai-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        .ai-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .ai-desc {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .ai-url {
+            font-size: 12px;
+            color: #999;
+            word-break: break-all;
+        }
+        .iframe-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #fff;
+            z-index: 1000;
+        }
+        .iframe-header {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #eee;
+        }
+        .iframe-back-btn {
+            padding: 8px 16px;
+            background-color: #6c757d;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-right: 15px;
+        }
+        .iframe-back-btn:hover {
+            background-color: #5a6268;
+        }
+        .iframe-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        .iframe-container iframe {
+            width: 100%;
+            height: calc(100vh - 60px);
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="{{ url_for('home') }}" class="back-btn">← 返回主页</a>
+        <span class="title">🤖 人工智能工具</span>
+    </div>
+
+    <div class="container">
+        <div class="ai-grid">
+            <div class="ai-card" onclick="openAI('http://yuanbao.tencent.com/chat/naQivTmsDa', '元宝')">
+                <div class="ai-icon">💰</div>
+                <div class="ai-title">元宝</div>
+                <div class="ai-desc">腾讯AI助手</div>
+                <div class="ai-url">http://yuanbao.tencent.com/chat/naQivTmsDa</div>
+            </div>
+
+            <div class="ai-card" onclick="openAI('https://www.doubao.com', '豆包')">
+                <div class="ai-icon">🥟</div>
+                <div class="ai-title">豆包</div>
+                <div class="ai-desc">字节跳动AI助手</div>
+                <div class="ai-url">https://www.doubao.com</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="iframe-container" id="iframeContainer">
+        <div class="iframe-header">
+            <a href="javascript:void(0)" class="iframe-back-btn" onclick="closeAI()">← 返回选择</a>
+            <span class="iframe-title" id="iframeTitle">AI工具</span>
+        </div>
+        <iframe id="aiFrame"></iframe>
+    </div>
+
+    <script>
+        function openAI(url, title) {
+            document.getElementById('iframeTitle').textContent = title;
+            document.getElementById('aiFrame').src = url;
+            document.getElementById('iframeContainer').style.display = 'block';
+            document.querySelector('.container').style.display = 'none';
+        }
+
+        function closeAI() {
+            document.getElementById('iframeContainer').style.display = 'none';
+            document.getElementById('aiFrame').src = '';
+            document.querySelector('.container').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

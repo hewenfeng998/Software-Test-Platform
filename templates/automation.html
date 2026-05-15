@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自动化测试平台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #f5f7fa;
+            min-height: 100vh;
+        }
+        .header {
+            background-color: #fff;
+            border-bottom: 1px solid #eee;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .back-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-right: 20px;
+        }
+        .back-btn:hover {
+            background-color: #1976D2;
+        }
+        .title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .auto-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        .auto-card {
+            background-color: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: 1px solid #eee;
+        }
+        .auto-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .auto-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        .auto-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .auto-desc {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .auto-url {
+            font-size: 12px;
+            color: #999;
+            word-break: break-all;
+        }
+        .iframe-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #fff;
+            z-index: 1000;
+        }
+        .iframe-header {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #eee;
+        }
+        .iframe-back-btn {
+            padding: 8px 16px;
+            background-color: #6c757d;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-right: 15px;
+        }
+        .iframe-back-btn:hover {
+            background-color: #5a6268;
+        }
+        .iframe-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        .iframe-container iframe {
+            width: 100%;
+            height: calc(100vh - 60px);
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="{{ url_for('home') }}" class="back-btn">← 返回主页</a>
+        <span class="title">🤖 自动化测试平台</span>
+    </div>
+
+    <div class="container">
+        <div class="auto-grid">
+            <div class="auto-card" onclick="openAuto('https://d-ai.test.seewo.com/teams', 'AI测试平台')">
+                <div class="auto-icon">🤖</div>
+                <div class="auto-title">AI测试平台</div>
+                <div class="auto-desc">智能自动化测试工具</div>
+                <div class="auto-url">https://d-ai.test.seewo.com/teams</div>
+            </div>
+
+            <div class="auto-card" onclick="openAuto('http://10.60.255.104:18080/tasks', '国产化自动化测试')">
+                <div class="auto-icon">🇨🇳</div>
+                <div class="auto-title">国产化自动化测试</div>
+                <div class="auto-desc">国产自研自动化测试平台</div>
+                <div class="auto-url">http://10.60.255.104:18080/tasks</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="iframe-container" id="iframeContainer">
+        <div class="iframe-header">
+            <a href="javascript:void(0)" class="iframe-back-btn" onclick="closeAuto()">← 返回选择</a>
+            <span class="iframe-title" id="iframeTitle">自动化测试平台</span>
+        </div>
+        <iframe id="autoFrame"></iframe>
+    </div>
+
+    <script>
+        function openAuto(url, title) {
+            document.getElementById('iframeTitle').textContent = title;
+            document.getElementById('autoFrame').src = url;
+            document.getElementById('iframeContainer').style.display = 'block';
+            document.querySelector('.container').style.display = 'none';
+        }
+
+        function closeAuto() {
+            document.getElementById('iframeContainer').style.display = 'none';
+            document.getElementById('autoFrame').src = '';
+            document.querySelector('.container').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
