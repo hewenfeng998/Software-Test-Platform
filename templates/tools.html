@@ -82,6 +82,7 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             width: 100%;
+            cursor: pointer;
         }
         .upload-btn {
             padding: 12px 30px;
@@ -93,8 +94,41 @@
             cursor: pointer;
             transition: background-color 0.3s;
         }
-        .upload-btn:hover {
+        .upload-btn:hover:not(:disabled) {
             background-color: #45a049;
+        }
+        .upload-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .progress-container {
+            display: none;
+            margin-top: 15px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            border-radius: 10px;
+            transition: width 0.1s ease;
+            display: flex;
+            align-items: center;
+            padding-left: 10px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .progress-text {
+            font-size: 14px;
+            color: #666;
+            text-align: center;
         }
         .tools-section {
             background-color: #fff;
@@ -205,20 +239,27 @@
 
         <div class="upload-section">
             <h2>📤 上传工具</h2>
-            <form method="POST" enctype="multipart/form-data" action="{{ url_for('tools') }}">
+            <form id="uploadForm" enctype="multipart/form-data">
                 <div class="form-group">
                     <label>工具名称</label>
-                    <input type="text" name="name" required placeholder="请输入工具名称">
+                    <input type="text" id="toolName" name="name" required placeholder="请输入工具名称">
                 </div>
                 <div class="form-group">
                     <label>工具描述</label>
-                    <textarea name="description" placeholder="请输入工具描述（可选）"></textarea>
+                    <textarea id="toolDesc" name="description" placeholder="请输入工具描述（可选）"></textarea>
                 </div>
                 <div class="form-group">
                     <label>上传文件</label>
-                    <input type="file" name="file" required accept=".exe,.zip,.rar,.tar,.gz,.py,.js,.json">
+                    <input type="file" id="toolFile" name="file" required accept=".exe,.zip,.rar,.tar,.gz,.py,.js,.json">
                 </div>
-                <button type="submit" class="upload-btn">上传工具</button>
+                <button type="submit" class="upload-btn" id="uploadBtn">上传工具</button>
+                
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill">0%</div>
+                    </div>
+                    <div class="progress-text" id="progressText">准备上传...</div>
+                </div>
             </form>
         </div>
 
@@ -247,5 +288,62 @@
             {% endif %}
         </div>
     </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('name', document.getElementById('toolName').value);
+            formData.append('description', document.getElementById('toolDesc').value);
+            formData.append('file', document.getElementById('toolFile').files[0]);
+            
+            const xhr = new XMLHttpRequest();
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            // 显示进度条
+            progressContainer.style.display = 'block';
+            uploadBtn.disabled = true;
+            
+            xhr.open('POST', '{{ url_for('tools') }}', true);
+            
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    progressFill.style.width = percent + '%';
+                    progressFill.textContent = percent + '%';
+                    progressText.textContent = `上传中... ${e.loaded} / ${e.total} bytes`;
+                }
+            });
+            
+            xhr.upload.addEventListener('load', function() {
+                progressFill.style.width = '100%';
+                progressFill.textContent = '100%';
+                progressText.textContent = '上传完成，正在处理...';
+            });
+            
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    progressText.textContent = '上传成功！页面即将刷新...';
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    progressText.textContent = '上传失败，请重试';
+                    uploadBtn.disabled = false;
+                }
+            };
+            
+            xhr.onerror = function() {
+                progressText.textContent = '上传失败，请检查网络';
+                uploadBtn.disabled = false;
+            };
+            
+            xhr.send(formData);
+        });
+    </script>
 </body>
 </html>
