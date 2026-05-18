@@ -255,11 +255,29 @@ def logout():
     flash('已退出登录')
     return redirect(url_for('login'))
 
+import socket
+
+def get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0)
+        try:
+            s.connect(('10.255.255.255', 1))
+        except:
+            s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return '127.0.0.1'
+
 @app.route('/')
 @login_required
 def home():
     user = User.query.get(session['user_id'])
-    return render_template('home.html', is_admin=user.is_admin(), role=user.role)
+    hostname = socket.gethostname()
+    local_ip = get_local_ip()
+    return render_template('home.html', is_admin=user.is_admin(), role=user.role, hostname=hostname, local_ip=local_ip)
 
 @app.route('/project')
 @login_required
