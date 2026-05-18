@@ -100,9 +100,31 @@
         .register-link a:hover {
             text-decoration: underline;
         }
+        .server-info {
+            position: fixed;
+            top: 0;
+            left: 0;
+            padding: 15px 20px;
+            color: white;
+            font-size: 12px;
+            background: rgba(0,0,0,0.2);
+        }
+        .info-item {
+            margin-bottom: 5px;
+        }
+        .info-item .highlight {
+            color: #ffeb3b;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
     </style>
 </head>
 <body>
+    <div class="server-info">
+        <div class="info-item">域名地址: <span class="highlight">{{ hostname }}.local:5000</span></div>
+        <div class="info-item">IP地址: <span class="highlight">{{ local_ip }}:5000</span></div>
+    </div>
+    
     <div class="login-container">
         <h1 class="login-title">💪 软件测试平台</h1>
         <p class="login-subtitle">请登录您的账号</p>

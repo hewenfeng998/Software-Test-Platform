@@ -216,6 +216,9 @@ def editor_required(f):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    hostname = socket.gethostname()
+    local_ip = get_local_ip()
+    
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -224,11 +227,11 @@ def login():
         
         if not user:
             flash('用户名或密码错误！')
-            return render_template('login.html')
+            return render_template('login.html', hostname=hostname, local_ip=local_ip)
             
         if not user.is_active:
             flash('账号未通过审核，请联系管理员！')
-            return render_template('login.html')
+            return render_template('login.html', hostname=hostname, local_ip=local_ip)
             
         if user.password == password:
             session['user_id'] = user.id
@@ -247,7 +250,7 @@ def login():
         else:
             flash('用户名或密码错误！')
     
-    return render_template('login.html')
+    return render_template('login.html', hostname=hostname, local_ip=local_ip)
 
 @app.route('/logout')
 def logout():
