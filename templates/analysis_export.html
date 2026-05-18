@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ period_name }}项目分析报告</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .export-info {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-card .number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-card .label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .stat-card.total { background-color: #e3f2fd; }
+        .stat-card.pending { background-color: #fff3e0; }
+        .stat-card.progress { background-color: #e3f2fd; }
+        .stat-card.completed { background-color: #e8f5e9; }
+        .stat-card.interrupted { background-color: #f3e5f5; }
+        .stat-card.rejected { background-color: #ffebee; }
+        .stat-card.avg-progress { background-color: #f3e5f5; }
+        .stat-card.blockers { background-color: #ffebee; }
+        .charts-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .chart-card {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .chart-card h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .bar-container {
+            margin-bottom: 15px;
+        }
+        .bar-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .bar-track {
+            height: 30px;
+            background-color: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            padding-left: 15px;
+            color: white;
+            font-weight: bold;
+            transition: width 0.3s;
+        }
+        .bar-fill.pending { background-color: #ff9800; }
+        .bar-fill.progress { background-color: #2196F3; }
+        .bar-fill.completed { background-color: #4CAF50; }
+        .bar-fill.interrupted { background-color: #9c27b0; }
+        .bar-fill.rejected { background-color: #f44336; }
+        .table-section {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        .table-section h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: auto;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            white-space: nowrap;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            white-space: nowrap;
+            display: inline-block;
+            min-width: 60px;
+            text-align: center;
+        }
+        .status-pending { background-color: #ff9800; color: white; }
+        .status-progress { background-color: #2196F3; color: white; }
+        .status-completed { background-color: #4CAF50; color: white; }
+        .status-interrupted { background-color: #9c27b0; color: white; }
+        .status-rejected { background-color: #f44336; color: white; }
+        .test-result {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .result-pass { background-color: #4CAF50; color: white; }
+        .result-fail { background-color: #f44336; color: white; }
+        .result-na { background-color: #9e9e9e; color: white; }
+        .no-data {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+        .report-footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #888;
+            font-size: 14px;
+        }
+        @media print {
+            body { padding: 15px; }
+            .charts-section { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 {{ period_name }}项目分析报告</h1>
+        
+        <div class="export-info">
+            生成时间：{{ current_time }}
+            {% if industry_filter and industry_filter != 'all' %}
+            | 行业筛选：{{ industry_filter }}
+            {% endif %}
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card total">
+                <div class="number">{{ total_tasks }}</div>
+                <div class="label">总任务数</div>
+            </div>
+            <div class="stat-card pending">
+                <div class="number">{{ status_counts.get('待处理', 0) }}</div>
+                <div class="label">待处理</div>
+            </div>
+            <div class="stat-card progress">
+                <div class="number">{{ status_counts.get('进行中', 0) }}</div>
+                <div class="label">进行中</div>
+            </div>
+            <div class="stat-card completed">
+                <div class="number">{{ status_counts.get('已完成', 0) }}</div>
+                <div class="label">已完成</div>
+            </div>
+            <div class="stat-card interrupted">
+                <div class="number">{{ status_counts.get('异常中断', 0) }}</div>
+                <div class="label">异常中断</div>
+            </div>
+            <div class="stat-card rejected">
+                <div class="number">{{ status_counts.get('送测打回', 0) }}</div>
+                <div class="label">送测打回</div>
+            </div>
+            <div class="stat-card avg-progress">
+                <div class="number">{{ avg_progress }}%</div>
+                <div class="label">平均进度</div>
+            </div>
+            <div class="stat-card blockers">
+                <div class="number">{{ blocker_count }}</div>
+                <div class="label">有卡点问题</div>
+            </div>
+        </div>
+        
+        <div class="charts-section">
+            <div class="chart-card">
+                <h3>📈 状态分布</h3>
+                {% if total_tasks > 0 %}
+                    {% set pending_count = status_counts.get('待处理', 0) %}
+                    {% set pending_percent = (pending_count / total_tasks * 100)|round(1) %}
+                    <div class="bar-container">
+                        <div class="bar-label">待处理: {{ pending_count }} ({{ pending_percent }}%)</div>
+                        <div class="bar-track">
+                            <div class="bar-fill pending" style="width: {{ pending_percent }}%">{{ pending_count }}</div>
+                        </div>
+                    </div>
+                    
+                    {% set progress_count = status_counts.get('进行中', 0) %}
+                    {% set progress_percent = (progress_count / total_tasks * 100)|round(1) %}
+                    <div class="bar-container">
+                        <div class="bar-label">进行中: {{ progress_count }} ({{ progress_percent }}%)</div>
+                        <div class="bar-track">
+                            <div class="bar-fill progress" style="width: {{ progress_percent }}%">{{ progress_count }}</div>
+                        </div>
+                    </div>
+                    
+                    {% set completed_count = status_counts.get('已完成', 0) %}
+                    {% set completed_percent = (completed_count / total_tasks * 100)|round(1) %}
+                    <div class="bar-container">
+                        <div class="bar-label">已完成: {{ completed_count }} ({{ completed_percent }}%)</div>
+                        <div class="bar-track">
+                            <div class="bar-fill completed" style="width: {{ completed_percent }}%">{{ completed_count }}</div>
+                        </div>
+                    </div>
+                    
+                    {% set interrupted_count = status_counts.get('异常中断', 0) %}
+                    {% set interrupted_percent = (interrupted_count / total_tasks * 100)|round(1) %}
+                    <div class="bar-container">
+                        <div class="bar-label">异常中断: {{ interrupted_count }} ({{ interrupted_percent }}%)</div>
+                        <div class="bar-track">
+                            <div class="bar-fill interrupted" style="width: {{ interrupted_percent }}%">{{ interrupted_count }}</div>
+                        </div>
+                    </div>
+                    
+                    {% set rejected_count = status_counts.get('送测打回', 0) %}
+                    {% set rejected_percent = (rejected_count / total_tasks * 100)|round(1) %}
+                    <div class="bar-container">
+                        <div class="bar-label">送测打回: {{ rejected_count }} ({{ rejected_percent }}%)</div>
+                        <div class="bar-track">
+                            <div class="bar-fill rejected" style="width: {{ rejected_percent }}%">{{ rejected_count }}</div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="no-data">暂无任务数据</div>
+                {% endif %}
+            </div>
+            
+            <div class="chart-card">
+                <h3>✅ 测试结果分析</h3>
+                {% if total_tasks > 0 %}
+                    {% set pass_count = test_result_counts.get('PASS', 0) %}
+                    {% set pass_percent = ((pass_count / total_tasks) * 100)|round(1) %}
+                    <div class="bar-container">
+                        <div class="bar-label">PASS: {{ pass_count }} ({{ pass_percent }}%)</div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width: {{ pass_percent }}%; background-color: #4CAF50;">{{ pass_count }}</div>
+                        </div>
+                    </div>
+                    
+                    {% set fail_count = test_result_counts.get('FAIL', 0) %}
+                    {% set fail_percent = ((fail_count / total_tasks) * 100)|round(1) %}
+                    <div class="bar-container">
+                        <div class="bar-label">FAIL: {{ fail_count }} ({{ fail_percent }}%)</div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width: {{ fail_percent }}%; background-color: #f44336;">{{ fail_count }}</div>
+                        </div>
+                    </div>
+                    
+                    {% set na_count = test_result_counts.get('N/A', 0) %}
+                    {% set na_percent = ((na_count / total_tasks) * 100)|round(1) %}
+                    <div class="bar-container">
+                        <div class="bar-label">N/A: {{ na_count }} ({{ na_percent }}%)</div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width: {{ na_percent }}%; background-color: #9e9e9e;">{{ na_count }}</div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="no-data">暂无任务数据</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="table-section">
+            <h3>📋 任务列表</h3>
+            {% if tasks %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>行业</th>
+                            <th>任务标题</th>
+                            <th>状态</th>
+                            <th>测试结果</th>
+                            <th>测试人员</th>
+                            <th>进度</th>
+                            <th>时间范围</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks %}
+                        <tr>
+                            <td>{{ task.industry or '-' }}</td>
+                            <td>{{ task.title }}</td>
+                            <td><span class="status status-{{ 'pending' if task.status == '待处理' else 'progress' if task.status == '进行中' else 'completed' if task.status == '已完成' else 'interrupted' if task.status == '异常中断' else 'rejected' }}">{{ task.status }}</span></td>
+                            <td><span class="test-result result-{{ 'pass' if task.test_result == 'PASS' else 'fail' if task.test_result == 'FAIL' else 'na' }}">{{ task.test_result or 'N/A' }}</span></td>
+                            <td>{{ task.tester or '-' }}</td>
+                            <td>{{ task.progress }}%</td>
+                            <td>{{ task.start_date.strftime('%Y-%m-%d') if task.start_date else '-' }} ~ {{ task.end_date.strftime('%Y-%m-%d') if task.end_date else '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-data">暂无任务数据</div>
+            {% endif %}
+        </div>
+        
+        <div class="report-footer">
+            <p>软件测试平台 - 项目分析报告</p>
+        </div>
+    </div>
+</body>
+</html>

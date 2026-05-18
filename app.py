@@ -681,31 +681,60 @@ def import_tasks():
 @app.route('/analysis/export')
 @login_required
 def export_analysis():
+    period_type = request.args.get('period_type', 'monthly')
     year = request.args.get('year', datetime.now().year)
     month = request.args.get('month', datetime.now().month)
+    quarter = request.args.get('quarter', 1)
+    industry_filter = request.args.get('industry_filter', 'all')
 
     try:
         year = int(year)
         month = int(month)
+        quarter = int(quarter)
     except:
         year = datetime.now().year
         month = datetime.now().month
+        quarter = 1
 
-    start_date = datetime(year, month, 1)
-    if month == 12:
-        end_date = datetime(year + 1, 1, 1)
+    if period_type == 'monthly':
+        start_date = datetime(year, month, 1)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+        period_name = f"{year}年{month}月"
+    elif period_type == 'quarterly':
+        quarter_start_month = (quarter - 1) * 3 + 1
+        start_date = datetime(year, quarter_start_month, 1)
+        if quarter_start_month + 2 == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, quarter_start_month + 3, 1)
+        period_name = f"{year}年第{quarter}季度"
     else:
-        end_date = datetime(year, month + 1, 1)
+        start_date = datetime(year, 1, 1)
+        end_date = datetime(year + 1, 1, 1)
+        period_name = f"{year}年度"
 
-    tasks = Task.query.filter(
+    query = Task.query.filter(
         Task.created_at >= start_date,
         Task.created_at < end_date
-    ).all()
+    )
+
+    if industry_filter != 'all' and industry_filter:
+        query = query.filter(Task.industry == industry_filter)
+
+    tasks = query.all()
 
     status_counts = defaultdict(int)
     priority_counts = defaultdict(int)
     test_result_counts = defaultdict(int)
     total_tasks = len(tasks)
+    pending_count = 0
+    progress_count = 0
+    completed_count = 0
+    interrupted_count = 0
+    rejected_count = 0
     avg_progress = 0
     blocker_count = 0
 
@@ -716,23 +745,66 @@ def export_analysis():
         avg_progress += task.progress
         if task.blockers:
             blocker_count += 1
+        if task.status == '待处理':
+            pending_count += 1
+        elif task.status == '进行中':
+            progress_count += 1
+        elif task.status == '已完成':
+            completed_count += 1
+        elif task.status == '异常中断':
+            interrupted_count += 1
+        elif task.status == '送测打回':
+            rejected_count += 1
 
     if total_tasks > 0:
         avg_progress = round(avg_progress / total_tasks, 1)
 
-    html_content = render_template('export_report.html',
+    years = []
+    current_year = datetime.now().year
+    for y in range(current_year - 5, current_year + 2):
+        years.append({'num': y, 'selected': (y == year)})
+
+    months = []
+    month_names = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+    for m in range(1, 13):
+        months.append({'num': m, 'name': month_names[m-1], 'selected': (m == month)})
+
+    quarters = []
+    quarter_names = ['第一季度', '第二季度', '第三季度', '第四季度']
+    for q in range(1, 5):
+        quarters.append({'num': q, 'name': quarter_names[q-1], 'selected': (q == quarter)})
+
+    industry_list = Task.query.with_entities(Task.industry).distinct().all()
+    industry_list = [i[0] for i in industry_list if i[0]]
+
+    current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    html_content = render_template('analysis_export.html',
                                    tasks=tasks,
+                                   period_name=period_name,
                                    year=year,
                                    month=month,
+                                   quarter=quarter,
+                                   period_type=period_type,
+                                   industry_filter=industry_filter,
+                                   years=years,
+                                   months=months,
+                                   quarters=quarters,
+                                   industry_list=industry_list,
                                    status_counts=status_counts,
                                    priority_counts=priority_counts,
                                    test_result_counts=test_result_counts,
                                    total_tasks=total_tasks,
+                                   pending_count=pending_count,
+                                   progress_count=progress_count,
+                                   completed_count=completed_count,
+                                   interrupted_count=interrupted_count,
+                                   rejected_count=rejected_count,
                                    avg_progress=avg_progress,
                                    blocker_count=blocker_count,
-                                   current_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                                   current_time=current_time)
     
-    filename = f"report_{year}_{month}.html"
+    filename = f"report_{period_type}_{year}_{month if period_type == 'monthly' else quarter}.html"
     
     response = make_response(html_content)
     response.headers['Content-Type'] = 'text/html; charset=utf-8'
