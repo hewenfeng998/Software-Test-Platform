@@ -42,6 +42,8 @@
         .task-bar.pending { background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%); }
         .task-bar.progress { background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); }
         .task-bar.completed { background: linear-gradient(135deg, #10B981 0%, #059669 100%); }
+        .task-bar.interrupted { background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); }
+        .task-bar.rejected { background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%); }
         .tooltip { display: none; position: fixed; background-color: #333; color: white; padding: 12px; border-radius: 8px; font-size: 13px; z-index: 1000; min-width: 250px; }
     </style>
 </head>
@@ -71,6 +73,14 @@
             <div class="legend-item">
                 <div class="legend-color" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%);"></div>
                 <span style="font-size:14px;color:#666;">已完成</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);"></div>
+                <span style="font-size:14px;color:#666;">异常中断</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);"></div>
+                <span style="font-size:14px;color:#666;">送测打回</span>
             </div>
         </div>
 
@@ -108,7 +118,7 @@
         var todayIndex = -1;
         var totalDays = 0;
 
-        var colorMap = { '待处理': 'pending', '进行中': 'progress', '已完成': 'completed' };
+        var colorMap = { '待处理': 'pending', '进行中': 'progress', '已完成': 'completed', '异常中断': 'interrupted', '送测打回': 'rejected' };
 
         function renderDates() {
             var header = document.getElementById('datesHeader');

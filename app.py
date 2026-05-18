@@ -177,7 +177,7 @@ def register():
 
     return render_template('register.html')
 
-STATUS_OPTIONS = ['待处理', '进行中', '已完成']
+STATUS_OPTIONS = ['待处理', '进行中', '已完成', '异常中断', '送测打回']
 
 def login_required(f):
     @wraps(f)

@@ -141,6 +141,8 @@
         .bar-fill.pending { background-color: #ff9800; }
         .bar-fill.progress { background-color: #2196F3; }
         .bar-fill.completed { background-color: #4CAF50; }
+        .bar-fill.interrupted { background-color: #9c27b0; }
+        .bar-fill.rejected { background-color: #f44336; }
         .bar-fill.high { background-color: #f44336; }
         .bar-fill.medium { background-color: #ff9800; }
         .bar-fill.low { background-color: #9e9e9e; }
@@ -182,6 +184,8 @@
         .status-pending { background-color: #ff9800; color: white; }
         .status-progress { background-color: #2196F3; color: white; }
         .status-completed { background-color: #4CAF50; color: white; }
+        .status-interrupted { background-color: #9c27b0; color: white; }
+        .status-rejected { background-color: #f44336; color: white; }
         .test-result {
             padding: 4px 10px;
             border-radius: 20px;
@@ -261,6 +265,14 @@
                 <div class="number">{{ status_counts.get('已完成', 0) }}</div>
                 <div class="label">已完成</div>
             </div>
+            <div class="stat-card interrupted">
+                <div class="number">{{ status_counts.get('异常中断', 0) }}</div>
+                <div class="label">异常中断</div>
+            </div>
+            <div class="stat-card rejected">
+                <div class="number">{{ status_counts.get('送测打回', 0) }}</div>
+                <div class="label">送测打回</div>
+            </div>
             <div class="stat-card avg-progress">
                 <div class="number">{{ avg_progress }}%</div>
                 <div class="label">平均进度</div>
@@ -299,6 +311,24 @@
                         <div class="bar-label">已完成: {{ completed_count }} ({{ completed_percent }}%)</div>
                         <div class="bar-track">
                             <div class="bar-fill completed" style="width: {{ completed_percent }}%">{{ completed_count }}</div>
+                        </div>
+                    </div>
+                    
+                    {% set interrupted_count = status_counts.get('异常中断', 0) %}
+                    {% set interrupted_percent = (interrupted_count / total_tasks * 100)|round(1) %}
+                    <div class="bar-container">
+                        <div class="bar-label">异常中断: {{ interrupted_count }} ({{ interrupted_percent }}%)</div>
+                        <div class="bar-track">
+                            <div class="bar-fill interrupted" style="width: {{ interrupted_percent }}%">{{ interrupted_count }}</div>
+                        </div>
+                    </div>
+                    
+                    {% set rejected_count = status_counts.get('送测打回', 0) %}
+                    {% set rejected_percent = (rejected_count / total_tasks * 100)|round(1) %}
+                    <div class="bar-container">
+                        <div class="bar-label">送测打回: {{ rejected_count }} ({{ rejected_percent }}%)</div>
+                        <div class="bar-track">
+                            <div class="bar-fill rejected" style="width: {{ rejected_percent }}%">{{ rejected_count }}</div>
                         </div>
                     </div>
                 {% else %}
@@ -401,7 +431,7 @@
                             <td>{{ task.submitter or '-' }}</td>
                             <td>{{ task.tester or '-' }}</td>
                             <td>
-                                <span class="status {% if task.status == '待处理' %}status-pending{% elif task.status == '进行中' %}status-progress{% else %}status-completed{% endif %}">
+                                <span class="status {% if task.status == '待处理' %}status-pending{% elif task.status == '进行中' %}status-progress{% elif task.status == '已完成' %}status-completed{% elif task.status == '异常中断' %}status-interrupted{% else %}status-rejected{% endif %}">
                                     {{ task.status }}
                                 </span>
                             </td>

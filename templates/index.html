@@ -213,6 +213,8 @@
         .status-pending { background-color: #ff9800; color: white; }
         .status-progress { background-color: #2196F3; color: white; }
         .status-completed { background-color: #4CAF50; color: white; }
+        .status-interrupted { background-color: #9c27b0; color: white; }
+        .status-rejected { background-color: #f44336; color: white; }
         .test-result {
             padding: 4px 10px;
             border-radius: 20px;
@@ -504,7 +506,7 @@
                         <td>{{ task.title }}</td>
                         <td>{{ task.tester or '-' }}</td>
                         <td>
-                            <span class="status {% if task.status == '待处理' %}status-pending{% elif task.status == '进行中' %}status-progress{% else %}status-completed{% endif %}">
+                            <span class="status {% if task.status == '待处理' %}status-pending{% elif task.status == '进行中' %}status-progress{% elif task.status == '已完成' %}status-completed{% elif task.status == '异常中断' %}status-interrupted{% else %}status-rejected{% endif %}">
                                 {{ task.status }}
                             </span>
                         </td>
@@ -629,7 +631,9 @@
             title.innerHTML = task.title;
             
             var statusClass = task.status === '待处理' ? 'status-pending' : 
-                             task.status === '进行中' ? 'status-progress' : 'status-completed';
+                             task.status === '进行中' ? 'status-progress' : 
+                             task.status === '已完成' ? 'status-completed' : 
+                             task.status === '异常中断' ? 'status-interrupted' : 'status-rejected';
             var priorityClass = task.priority === '高' ? 'detail-priority-high' : 
                                task.priority === '中等' ? 'detail-priority-medium' : 'detail-priority-low';
             

@@ -124,6 +124,8 @@
                         <option value="待处理" {% if task.status == '待处理' %}selected{% endif %}>待处理</option>
                         <option value="进行中" {% if task.status == '进行中' %}selected{% endif %}>进行中</option>
                         <option value="已完成" {% if task.status == '已完成' %}selected{% endif %}>已完成</option>
+                        <option value="异常中断" {% if task.status == '异常中断' %}selected{% endif %}>异常中断</option>
+                        <option value="送测打回" {% if task.status == '送测打回' %}selected{% endif %}>送测打回</option>
                     </select>
                 </div>
                 <div>

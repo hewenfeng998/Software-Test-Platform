@@ -142,6 +142,8 @@
         .status-pending { background-color: #ff9800; }
         .status-progress { background-color: #2196F3; }
         .status-completed { background-color: #4CAF50; }
+        .status-interrupted { background-color: #9c27b0; }
+        .status-rejected { background-color: #f44336; }
         .no-data {
             text-align: center;
             padding: 50px;
@@ -239,7 +241,7 @@
                     {% for task in tasks %}
                     <tr>
                         <td>{{ task.title }}</td>
-                        <td><span class="status status-{{ 'pending' if task.status == '待处理' else 'progress' if task.status == '进行中' else 'completed' }}">{{ task.status }}</span></td>
+                        <td><span class="status status-{{ 'pending' if task.status == '待处理' else 'progress' if task.status == '进行中' else 'completed' if task.status == '已完成' else 'interrupted' if task.status == '异常中断' else 'rejected' }}">{{ task.status }}</span></td>
                         <td>{{ task.priority }}</td>
                         <td>{{ task.submitter }}</td>
                         <td>{{ task.tester }}</td>
