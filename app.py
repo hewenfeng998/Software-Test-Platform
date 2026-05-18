@@ -79,6 +79,20 @@ class LoginLog(db.Model):
     def __repr__(self):
         return f'<LoginLog {self.username} {self.login_time}>'
 
+class Tool(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    file_path = db.Column(db.String(255), nullable=False)
+    file_name = db.Column(db.String(255), nullable=False)
+    file_size = db.Column(db.Integer, nullable=False)
+    uploader_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    uploader_name = db.Column(db.String(50), nullable=False)
+    upload_time = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Tool {self.name}>'
+
 ROLES = [
     ('admin', '管理员'),
     ('editor', '编辑'),
@@ -448,6 +462,113 @@ def ai():
 @login_required
 def cabinet():
     return render_template('cabinet.html')
+
+@app.route('/tools', methods=['GET', 'POST'])
+@login_required
+def tools():
+    import os
+    
+    UPLOAD_FOLDER = 'uploads'
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+    
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash('请选择要上传的文件', 'error')
+            return redirect(url_for('tools'))
+        
+        file = request.files['file']
+        if file.filename == '':
+            flash('请选择要上传的文件', 'error')
+            return redirect(url_for('tools'))
+        
+        if file:
+            name = request.form.get('name', '')
+            description = request.form.get('description', '')
+            
+            if not name:
+                flash('请输入工具名称', 'error')
+                return redirect(url_for('tools'))
+            
+            filename = file.filename
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+            
+            counter = 1
+            while os.path.exists(file_path):
+                name_parts = filename.rsplit('.', 1)
+                if len(name_parts) == 2:
+                    filename = f"{name_parts[0]}_{counter}.{name_parts[1]}"
+                else:
+                    filename = f"{filename}_{counter}"
+                file_path = os.path.join(UPLOAD_FOLDER, filename)
+                counter += 1
+            
+            file.save(file_path)
+            file_size = os.path.getsize(file_path)
+            
+            user = User.query.get(session['user_id'])
+            
+            new_tool = Tool(
+                name=name,
+                description=description,
+                file_path=file_path,
+                file_name=filename,
+                file_size=file_size,
+                uploader_id=user.id,
+                uploader_name=user.name or user.username
+            )
+            
+            db.session.add(new_tool)
+            db.session.commit()
+            
+            flash('工具上传成功', 'success')
+            return redirect(url_for('tools'))
+    
+    tools_list = Tool.query.order_by(Tool.upload_time.desc()).all()
+    return render_template('tools.html', tools=tools_list)
+
+@app.route('/tools/download/<int:tool_id>')
+@login_required
+def download_tool(tool_id):
+    import os
+    from flask import send_from_directory
+    
+    tool = Tool.query.get_or_404(tool_id)
+    
+    try:
+        return send_from_directory(
+            directory=os.path.dirname(tool.file_path),
+            path=os.path.basename(tool.file_path),
+            as_attachment=True,
+            download_name=tool.file_name
+        )
+    except Exception as e:
+        flash(f'下载失败: {str(e)}', 'error')
+        return redirect(url_for('tools'))
+
+@app.route('/tools/delete/<int:tool_id>')
+@login_required
+def delete_tool(tool_id):
+    import os
+    
+    tool = Tool.query.get_or_404(tool_id)
+    user = User.query.get(session['user_id'])
+    
+    if user.role != 'admin':
+        flash('只有管理员可以删除工具', 'error')
+        return redirect(url_for('tools'))
+    
+    try:
+        if os.path.exists(tool.file_path):
+            os.remove(tool.file_path)
+        
+        db.session.delete(tool)
+        db.session.commit()
+        flash('工具删除成功', 'success')
+    except Exception as e:
+        flash(f'删除失败: {str(e)}', 'error')
+    
+    return redirect(url_for('tools'))
 
 @app.route('/gantt')
 @login_required

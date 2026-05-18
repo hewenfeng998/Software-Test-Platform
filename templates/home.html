@@ -64,9 +64,9 @@
         }
         .menu-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 25px;
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
         }
         .menu-card {
@@ -128,6 +128,13 @@
         }
         .menu-card.cabinet:hover .menu-title,
         .menu-card.cabinet:hover .menu-desc {
+            color: white;
+        }
+        .menu-card.tools:hover {
+            background: linear-gradient(135deg, #ff5722, #e64a19);
+        }
+        .menu-card.tools:hover .menu-title,
+        .menu-card.tools:hover .menu-desc {
             color: white;
         }
         .footer {
@@ -202,6 +209,12 @@
                 <div class="menu-icon">🗄️</div>
                 <div class="menu-title">智能机柜</div>
                 <div class="menu-desc">智能设备管理系统</div>
+            </a>
+
+            <a href="{{ url_for('tools') }}" class="menu-card tools">
+                <div class="menu-icon">🛠️</div>
+                <div class="menu-title">测试工具</div>
+                <div class="menu-desc">工具上传与下载</div>
             </a>
         </div>
 
