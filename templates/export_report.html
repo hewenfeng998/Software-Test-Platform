@@ -54,6 +54,9 @@
         .stat-card.completed { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); }
         .stat-card.progress { background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); }
         .stat-card.blockers { background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%); }
+        .stat-card.pending { background: linear-gradient(135deg, #ff9800 0%, #e68900 100%); }
+        .stat-card.interrupted { background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); }
+        .stat-card.rejected { background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%); }
         .charts-section {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -175,9 +178,25 @@
             <div class="value">{{ total_tasks }}</div>
             <div class="label">总任务数</div>
         </div>
+        <div class="stat-card pending">
+            <div class="value">{{ status_counts.get('待处理', 0) }}</div>
+            <div class="label">待处理</div>
+        </div>
+        <div class="stat-card progress">
+            <div class="value">{{ status_counts.get('进行中', 0) }}</div>
+            <div class="label">进行中</div>
+        </div>
         <div class="stat-card completed">
             <div class="value">{{ status_counts.get('已完成', 0) }}</div>
             <div class="label">已完成</div>
+        </div>
+        <div class="stat-card interrupted">
+            <div class="value">{{ status_counts.get('异常中断', 0) }}</div>
+            <div class="label">异常中断</div>
+        </div>
+        <div class="stat-card rejected">
+            <div class="value">{{ status_counts.get('送测打回', 0) }}</div>
+            <div class="label">送测打回</div>
         </div>
         <div class="stat-card progress">
             <div class="value">{{ avg_progress }}%</div>
@@ -185,7 +204,7 @@
         </div>
         <div class="stat-card blockers">
             <div class="value">{{ blocker_count }}</div>
-            <div class="label">阻塞任务</div>
+            <div class="label">有卡点问题</div>
         </div>
     </div>
 
@@ -207,16 +226,17 @@
             {% endif %}
         </div>
         <div class="chart-card">
-            <h3>🎯 优先级分布</h3>
-            {% if priority_counts %}
-                <div class="pie-chart">
-                    {% for priority, count in priority_counts.items() %}
-                    <div class="pie-item">
-                        <div class="pie-color" style="background: {% if priority == '高' %}#f44336{% elif priority == '中等' %}#ff9800{% else %}#4CAF50{% endif %}"></div>
-                        <span class="pie-label">{{ priority }}: {{ count }}</span>
+            <h3>✅ 测试结果分析</h3>
+            {% if test_result_counts %}
+                {% for result, count in test_result_counts.items() %}
+                <div class="bar-container">
+                    <div class="bar-label">
+                        <span>{{ result }}</span>
+                        <span>{{ count }} ({{ (count/total_tasks*100)|round(1) }}%)</span>
                     </div>
-                    {% endfor %}
+                    <div class="bar-fill" style="width: {{ (count/total_tasks*100)|round(1) }}%; background: {% if result == 'PASS' %}#4CAF50{% elif result == 'FAIL' %}#f44336{% else %}#9E9E9E{% endif %}"></div>
                 </div>
+                {% endfor %}
             {% else %}
                 <p class="no-data">暂无数据</p>
             {% endif %}

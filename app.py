@@ -704,6 +704,7 @@ def export_analysis():
 
     status_counts = defaultdict(int)
     priority_counts = defaultdict(int)
+    test_result_counts = defaultdict(int)
     total_tasks = len(tasks)
     avg_progress = 0
     blocker_count = 0
@@ -711,6 +712,7 @@ def export_analysis():
     for task in tasks:
         status_counts[task.status] += 1
         priority_counts[task.priority] += 1
+        test_result_counts[task.test_result or 'N/A'] += 1
         avg_progress += task.progress
         if task.blockers:
             blocker_count += 1
@@ -724,6 +726,7 @@ def export_analysis():
                                    month=month,
                                    status_counts=status_counts,
                                    priority_counts=priority_counts,
+                                   test_result_counts=test_result_counts,
                                    total_tasks=total_tasks,
                                    avg_progress=avg_progress,
                                    blocker_count=blocker_count,
