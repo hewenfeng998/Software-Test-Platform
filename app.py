@@ -444,6 +444,11 @@ def wiki():
 def ai():
     return render_template('ai.html')
 
+@app.route('/cabinet')
+@login_required
+def cabinet():
+    return render_template('cabinet.html')
+
 @app.route('/gantt')
 @login_required
 def gantt():

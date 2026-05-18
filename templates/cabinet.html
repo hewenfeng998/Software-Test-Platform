@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能机柜系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #f5f7fa;
+            min-height: 100vh;
+        }
+        .header {
+            background-color: #fff;
+            border-bottom: 1px solid #eee;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .back-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-right: 20px;
+        }
+        .back-btn:hover {
+            background-color: #1976D2;
+        }
+        .title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .cabinet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        .cabinet-card {
+            background-color: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: 1px solid #eee;
+        }
+        .cabinet-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .cabinet-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        .cabinet-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .cabinet-desc {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .cabinet-url {
+            font-size: 12px;
+            color: #999;
+            word-break: break-all;
+        }
+        .iframe-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #fff;
+            z-index: 1000;
+        }
+        .iframe-header {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #eee;
+        }
+        .iframe-back-btn {
+            padding: 8px 16px;
+            background-color: #6c757d;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-right: 15px;
+        }
+        .iframe-back-btn:hover {
+            background-color: #5a6268;
+        }
+        .iframe-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        .iframe-container iframe {
+            width: 100%;
+            height: calc(100vh - 60px);
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="{{ url_for('home') }}" class="back-btn">← 返回主页</a>
+        <span class="title">🗄️ 智能机柜系统</span>
+    </div>
+
+    <div class="container">
+        <div class="cabinet-grid">
+            <div class="cabinet-card" onclick="openCabinet('https://guizi.test.seewo.com', '智能看板')">
+                <div class="cabinet-icon">📊</div>
+                <div class="cabinet-title">智能看板</div>
+                <div class="cabinet-desc">实时监控机柜状态</div>
+                <div class="cabinet-url">https://guizi.test.seewo.com</div>
+            </div>
+
+            <div class="cabinet-card" onclick="openCabinet('https://guizi-admin.test.seewo.com/#/', '后台管理')">
+                <div class="cabinet-icon">⚙️</div>
+                <div class="cabinet-title">后台管理</div>
+                <div class="cabinet-desc">设备管理与配置</div>
+                <div class="cabinet-url">https://guizi-admin.test.seewo.com/#/</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="iframe-container" id="iframeContainer">
+        <div class="iframe-header">
+            <a href="javascript:void(0)" class="iframe-back-btn" onclick="closeCabinet()">← 返回选择</a>
+            <span class="iframe-title" id="iframeTitle">智能机柜</span>
+        </div>
+        <iframe id="cabinetFrame"></iframe>
+    </div>
+
+    <script>
+        function openCabinet(url, title) {
+            document.getElementById('iframeTitle').textContent = title;
+            document.getElementById('cabinetFrame').src = url;
+            document.getElementById('iframeContainer').style.display = 'block';
+            document.querySelector('.container').style.display = 'none';
+        }
+
+        function closeCabinet() {
+            document.getElementById('iframeContainer').style.display = 'none';
+            document.getElementById('cabinetFrame').src = '';
+            document.querySelector('.container').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

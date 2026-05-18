@@ -64,9 +64,9 @@
         }
         .menu-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 30px;
-            max-width: 1200px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 25px;
+            max-width: 1400px;
             margin: 0 auto;
         }
         .menu-card {
@@ -121,6 +121,13 @@
         }
         .menu-card.ai:hover .menu-title,
         .menu-card.ai:hover .menu-desc {
+            color: white;
+        }
+        .menu-card.cabinet:hover {
+            background: linear-gradient(135deg, #00bcd4, #0097a7);
+        }
+        .menu-card.cabinet:hover .menu-title,
+        .menu-card.cabinet:hover .menu-desc {
             color: white;
         }
         .footer {
@@ -189,6 +196,12 @@
                 <div class="menu-icon">🧠</div>
                 <div class="menu-title">人工智能</div>
                 <div class="menu-desc">AI工具集成入口</div>
+            </a>
+
+            <a href="{{ url_for('cabinet') }}" class="menu-card cabinet">
+                <div class="menu-icon">🗄️</div>
+                <div class="menu-title">智能机柜</div>
+                <div class="menu-desc">智能设备管理系统</div>
             </a>
         </div>
 
