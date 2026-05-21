@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI面试官</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .back-btn {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 20px;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .header-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: white;
+        }
+        .content {
+            padding: 30px;
+        }
+        .api-config {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .config-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            color: #856404;
+            font-weight: 500;
+        }
+        .config-body {
+            display: none;
+        }
+        .config-body.show {
+            display: block;
+        }
+        .config-item {
+            margin-bottom: 15px;
+        }
+        .config-item label {
+            display: block;
+            font-size: 13px;
+            color: #856404;
+            margin-bottom: 5px;
+        }
+        .config-item input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #ffeeba;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+        .config-item input:focus {
+            border-color: #f0ad4e;
+        }
+        .chat-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .chat-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+        .chat-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        .chat-subtitle {
+            font-size: 13px;
+            color: #999;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding-right: 10px;
+        }
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #ddd;
+            border-radius: 3px;
+        }
+        .message {
+            display: flex;
+            margin-bottom: 18px;
+            gap: 12px;
+        }
+        .message.user {
+            flex-direction: row-reverse;
+        }
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 16px;
+        }
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            color: white;
+        }
+        .message.bot .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .message-content {
+            max-width: 75%;
+            padding: 14px 18px;
+            border-radius: 20px;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .message.user .message-content {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            color: white;
+            border-radius: 20px 6px 20px 20px;
+        }
+        .message.bot .message-content {
+            background: #fff;
+            color: #333;
+            border-radius: 6px 20px 20px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            padding: 12px 18px;
+            background: #fff;
+            border-radius: 6px 20px 20px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            width: fit-content;
+        }
+        .typing-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #999;
+            margin: 0 3px;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        .typing-dot:nth-child(1) { animation-delay: 0s; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+        .chat-input-area {
+            display: flex;
+            gap: 12px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        #chatInput {
+            flex: 1;
+            padding: 14px 20px;
+            border: 2px solid #ddd;
+            border-radius: 30px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        #chatInput:focus {
+            border-color: #667eea;
+        }
+        .send-btn {
+            padding: 14px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+        .send-btn:hover {
+            opacity: 0.9;
+        }
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .quick-questions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .quick-btn {
+            padding: 8px 16px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .quick-btn:hover {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="{{ url_for('ai') }}" class="back-btn">← 返回</a>
+            <span class="header-title">🤖 AI面试官</span>
+        </div>
+
+        <div class="content">
+            <div class="api-config">
+                <div class="config-header" onclick="toggleConfig()">
+                    <span>⚙️</span>
+                    <span>Dify API配置</span>
+                </div>
+                <div class="config-body" id="configBody">
+                    <div class="config-item">
+                        <label>API Key:</label>
+                        <input type="text" id="apiKey" placeholder="请输入Dify API Key">
+                    </div>
+                    <div class="config-item">
+                        <label>API Base URL:</label>
+                        <input type="text" id="apiUrl" placeholder="https://api.dify.ai/v1" value="https://api.dify.ai/v1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-section">
+                <div class="chat-header">
+                    <div class="chat-avatar">🤖</div>
+                    <div>
+                        <div class="chat-title">AI面试官</div>
+                        <div class="chat-subtitle">模拟面试 · 技能评估</div>
+                    </div>
+                </div>
+
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message bot">
+                        <div class="message-avatar">🤖</div>
+                        <div class="message-content">
+                            你好！我是AI面试官。很高兴为你进行模拟面试。请告诉我你准备好开始了吗？
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-questions">
+                    <button class="quick-btn" onclick="sendQuickQuestion('介绍一下你自己')">介绍一下你自己</button>
+                    <button class="quick-btn" onclick="sendQuickQuestion('你的职业规划是什么')">你的职业规划</button>
+                    <button class="quick-btn" onclick="sendQuickQuestion('为什么选择我们公司')">为什么选择我们</button>
+                    <button class="quick-btn" onclick="sendQuickQuestion('最大的优点和缺点')">优缺点分析</button>
+                </div>
+
+                <div class="chat-input-area">
+                    <input type="text" id="chatInput" placeholder="输入你的回答..." onkeydown="if(event.keyCode==13)sendMessage()">
+                    <button class="send-btn" onclick="sendMessage()">发送</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleConfig() {
+            const configBody = document.getElementById('configBody');
+            configBody.classList.toggle('show');
+        }
+
+        function sendQuickQuestion(question) {
+            document.getElementById('chatInput').value = question;
+            sendMessage();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const messages = document.getElementById('chatMessages');
+            
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user';
+            userMsg.innerHTML = `
+                <div class="message-avatar">👤</div>
+                <div class="message-content">${message}</div>
+            `;
+            messages.appendChild(userMsg);
+            input.value = '';
+            messages.scrollTop = messages.scrollHeight;
+
+            const typingMsg = document.createElement('div');
+            typingMsg.className = 'typing-indicator';
+            typingMsg.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+            messages.appendChild(typingMsg);
+            messages.scrollTop = messages.scrollHeight;
+
+            await callDifyAPI(message);
+            
+            messages.removeChild(typingMsg);
+        }
+
+        async function callDifyAPI(message) {
+            const apiKey = document.getElementById('apiKey').value || 'YOUR_DIFY_API_KEY';
+            const apiUrl = document.getElementById('apiUrl').value || 'https://api.dify.ai/v1';
+            
+            const messages = document.getElementById('chatMessages');
+
+            try {
+                const response = await fetch(`${apiUrl}/chat-messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        inputs: {},
+                        query: message,
+                        response_mode: 'streaming',
+                        conversation_id: '',
+                        user: 'ai_interviewer_user'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API request failed: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let botResponse = '';
+
+                const botMsg = document.createElement('div');
+                botMsg.className = 'message bot';
+                botMsg.innerHTML = '<div class="message-avatar">🤖</div><div class="message-content"></div>';
+                messages.appendChild(botMsg);
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n').filter(line => line.trim());
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.answer) {
+                                    botResponse += data.answer;
+                                    botMsg.querySelector('.message-content').textContent = botResponse;
+                                    messages.scrollTop = messages.scrollHeight;
+                                }
+                            } catch (e) {
+                                console.log('Streaming chunk:', line);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Dify API error:', error);
+                const botMsg = document.createElement('div');
+                botMsg.className = 'message bot';
+                botMsg.innerHTML = `
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">
+                        抱歉，暂时无法连接到AI服务。请检查API配置是否正确，或稍后重试。
+                        <br><br>
+                        <strong>模拟面试问题：</strong>请介绍一下你的工作经历和主要成就。
+                    </div>
+                `;
+                messages.appendChild(botMsg);
+                messages.scrollTop = messages.scrollHeight;
+            }
+        }
+    </script>
+</body>
+</html>

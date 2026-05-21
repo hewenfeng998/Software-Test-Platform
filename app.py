@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from collections import defaultdict
@@ -8,8 +8,41 @@ from io import StringIO
 from urllib.parse import quote
 import requests
 import json
+import os
+import time
+import threading
 
 FEISHU_WEBHOOK_URL = 'https://open.feishu.cn/open-apis/bot/v2/hook/deea26d5-c11e-4c21-88d1-2f25d29b1d88'
+
+HEARTBEAT_TIMEOUT = 30
+
+def check_offline_machines():
+    while True:
+        try:
+            with app.app_context():
+                current_time = time.time()
+                
+                machines = Machine.query.all()
+                for machine in machines:
+                    if machine.status == 'online':
+                        if machine.id in last_heartbeat:
+                            elapsed = current_time - last_heartbeat[machine.id]
+                            if elapsed >= HEARTBEAT_TIMEOUT:
+                                try:
+                                    del last_heartbeat[machine.id]
+                                    machine.status = 'offline'
+                                    db.session.commit()
+                                    print(f"机器 {machine.id} ({machine.name}) 已离线")
+                                except Exception as e:
+                                    print(f"更新机器状态失败: {e}")
+                        else:
+                            machine.status = 'offline'
+                            db.session.commit()
+                            print(f"机器 {machine.id} ({machine.name}) 无心跳记录，标记为离线")
+        except Exception as e:
+            print(f"离线检测错误: {e}")
+        
+        time.sleep(5)
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tasks_v4.db'
@@ -92,6 +125,23 @@ class Tool(db.Model):
 
     def __repr__(self):
         return f'<Tool {self.name}>'
+
+class Machine(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    os_type = db.Column(db.String(20), nullable=False)
+    ip_address = db.Column(db.String(50), nullable=False)
+    port = db.Column(db.Integer, nullable=False)
+    cpu = db.Column(db.String(20), nullable=True)
+    memory = db.Column(db.String(20), nullable=True)
+    username = db.Column(db.String(50), nullable=True)
+    password = db.Column(db.String(100), nullable=True)
+    status = db.Column(db.String(20), default='offline')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Machine {self.name} {self.ip_address}>'
 
 ROLES = [
     ('admin', '管理员'),
@@ -462,6 +512,11 @@ def ai():
 @login_required
 def cabinet():
     return render_template('cabinet.html')
+
+@app.route('/ai_interviewer')
+@login_required
+def ai_interviewer():
+    return render_template('ai_interviewer.html')
 
 @app.route('/tools', methods=['GET', 'POST'])
 @login_required
@@ -1061,5 +1116,319 @@ def reset_password(user_id):
     
     return render_template('reset_password.html', user=user)
 
+@app.route('/balongma')
+@login_required
+def balongma():
+    machines = Machine.query.all()
+    return render_template('balongma.html', machines=machines)
+
+@app.route('/balongma/add', methods=['POST'])
+@login_required
+def add_machine():
+    data = request.get_json()
+    machine = Machine(
+        name=data['name'],
+        os_type=data['osType'],
+        ip_address=data['ip'],
+        port=int(data['port']),
+        cpu=data.get('cpu'),
+        memory=data.get('memory'),
+        username=data.get('username'),
+        password=data.get('password'),
+        status='offline'
+    )
+    db.session.add(machine)
+    db.session.commit()
+    return jsonify({'success': True, 'machine': {
+        'id': machine.id,
+        'name': machine.name,
+        'os_type': machine.os_type,
+        'ip_address': machine.ip_address,
+        'port': machine.port,
+        'cpu': machine.cpu,
+        'memory': machine.memory,
+        'status': machine.status
+    }})
+
+@app.route('/balongma/check_status/<int:machine_id>')
+@login_required
+def check_machine_status(machine_id):
+    machine = Machine.query.get_or_404(machine_id)
+    return jsonify({'status': machine.status})
+
+@app.route('/balongma/terminal/<int:machine_id>', methods=['POST'])
+@login_required
+def execute_command(machine_id):
+    machine = Machine.query.get_or_404(machine_id)
+    command = request.json.get('command', '')
+    
+    try:
+        if machine.os_type == 'linux':
+            import paramiko
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(
+                machine.ip_address,
+                port=machine.port,
+                username=machine.username,
+                password=machine.password,
+                timeout=5
+            )
+            stdin, stdout, stderr = ssh.exec_command(command)
+            output = stdout.read().decode('utf-8') + stderr.read().decode('utf-8')
+            ssh.close()
+            return jsonify({'output': output.strip()})
+        else:
+            import subprocess
+            result = subprocess.run(
+                ['powershell', '-Command', f'Invoke-Command -ComputerName {machine.ip_address} -ScriptBlock {{{command}}}', '-Credential', f'(New-Object System.Management.Automation.PSCredential("{machine.username}", (ConvertTo-SecureString "{machine.password}" -AsPlainText -Force)))'],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            return jsonify({'output': result.stdout + result.stderr})
+    except Exception as e:
+        return jsonify({'output': f'执行失败: {str(e)}'})
+
+@app.route('/balongma/delete/<int:machine_id>', methods=['DELETE'])
+def delete_machine(machine_id):
+    machine = Machine.query.get(machine_id)
+    if machine:
+        db.session.delete(machine)
+        db.session.commit()
+        return jsonify({'success': True})
+    return jsonify({'success': False}, 404)
+
+@app.route('/balongma/machine/<int:machine_id>')
+def get_machine(machine_id):
+    machine = Machine.query.get(machine_id)
+    if machine:
+        return jsonify({
+            'id': machine.id,
+            'name': machine.name,
+            'os_type': machine.os_type,
+            'ip_address': machine.ip_address,
+            'port': machine.port,
+            'username': machine.username,
+            'cpu': machine.cpu,
+            'memory': machine.memory
+        })
+    return jsonify({'error': '机器不存在'}, 404)
+
+@app.route('/balongma/update/<int:machine_id>', methods=['PUT'])
+def update_machine(machine_id):
+    machine = Machine.query.get(machine_id)
+    if machine:
+        data = request.get_json()
+        if 'name' in data:
+            machine.name = data['name']
+        if 'os_type' in data:
+            machine.os_type = data['os_type']
+        if 'ip_address' in data:
+            machine.ip_address = data['ip_address']
+        if 'port' in data:
+            machine.port = int(data['port']) if data['port'] else 22
+        if 'username' in data:
+            machine.username = data['username']
+        if 'cpu' in data:
+            machine.cpu = data['cpu']
+        if 'memory' in data:
+            machine.memory = data['memory']
+        db.session.commit()
+        return jsonify({'success': True})
+    return jsonify({'success': False}, 404)
+
+@app.route('/balongma/machines')
+def get_machines():
+    machines = Machine.query.all()
+    machines_list = []
+    for m in machines:
+        machines_list.append({
+            'id': m.id,
+            'name': m.name,
+            'os_type': m.os_type,
+            'ip_address': m.ip_address,
+            'port': m.port,
+            'username': m.username,
+            'cpu': m.cpu,
+            'memory': m.memory,
+            'status': m.status
+        })
+    return jsonify({'machines': machines_list})
+
+screen_resolutions = {}
+last_heartbeat = {}
+
+@app.route('/balongma/register', methods=['POST'])
+def register_machine():
+    data = request.get_json()
+    hostname = data.get('hostname', 'Unknown')
+    os_type = data.get('os_type', 'windows')
+    ip_address = data.get('ip_address', '')
+    cpu_count = data.get('cpu_count', 0)
+    screen_width = data.get('screen_width', 1920)
+    screen_height = data.get('screen_height', 1080)
+    
+    machine = Machine.query.filter_by(ip_address=ip_address).first()
+    
+    if machine:
+        machine.status = 'online'
+        machine.name = hostname
+        machine.os_type = os_type
+        machine.cpu = f"{cpu_count}核"
+        db.session.commit()
+        last_heartbeat[machine.id] = time.time()
+        screen_resolutions[machine.id] = {'width': screen_width, 'height': screen_height}
+        return jsonify({'success': True, 'machine_id': machine.id})
+    
+    machine = Machine(
+        name=hostname,
+        os_type=os_type,
+        ip_address=ip_address,
+        port=22,
+        cpu=f"{cpu_count}核",
+        status='online'
+    )
+    db.session.add(machine)
+    db.session.commit()
+    last_heartbeat[machine.id] = time.time()
+    return jsonify({'success': True, 'machine_id': machine.id})
+
+@app.route('/balongma/heartbeat/<int:machine_id>', methods=['POST'])
+def heartbeat(machine_id):
+    machine = Machine.query.get(machine_id)
+    if machine:
+        machine.status = 'online'
+        db.session.commit()
+        last_heartbeat[machine_id] = time.time()
+        return jsonify({'success': True})
+    return jsonify({'success': False}, 404)
+
+@app.route('/balongma/check_status/<int:machine_id>')
+def check_status(machine_id):
+    machine = Machine.query.get(machine_id)
+    if machine:
+        if machine.status == 'online':
+            return jsonify({'status': 'online'})
+        return jsonify({'status': machine.status})
+    return jsonify({'status': 'offline'})
+
+@app.route('/balongma/refresh_status/<int:machine_id>')
+def refresh_status(machine_id):
+    machine = Machine.query.get(machine_id)
+    if machine:
+        if machine_id in last_heartbeat:
+            elapsed = time.time() - last_heartbeat[machine_id]
+            if elapsed < 30:
+                machine.status = 'online'
+                db.session.commit()
+                return jsonify({'status': 'online', 'elapsed': int(elapsed)})
+            else:
+                del last_heartbeat[machine_id]
+                machine.status = 'offline'
+                db.session.commit()
+                return jsonify({'status': 'offline', 'elapsed': int(elapsed)})
+        else:
+            machine.status = 'offline'
+            db.session.commit()
+            return jsonify({'status': 'offline', 'elapsed': -1})
+    return jsonify({'status': 'offline'})
+
+@app.route('/balongma/force_offline/<int:machine_id>', methods=['POST'])
+def force_offline(machine_id):
+    machine = Machine.query.get(machine_id)
+    if machine:
+        machine.status = 'offline'
+        if machine_id in last_heartbeat:
+            del last_heartbeat[machine_id]
+        db.session.commit()
+        return jsonify({'success': True})
+    return jsonify({'success': False})
+
+@app.route('/balongma/download_client')
+def download_client():
+    client_path = os.path.join(os.path.dirname(__file__), 'client_agent.py')
+    if os.path.exists(client_path):
+        with open(client_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        server_ip = request.host.split(':')[0]
+        server_port = request.host.split(':')[1] if ':' in request.host else '5000'
+        server_url = f"http://{server_ip}:{server_port}"
+        
+        content = content.replace('SERVER_URL = "http://192.168.31.182:5000"', f'SERVER_URL = "{server_url}"')
+        
+        response = make_response(content)
+        response.headers['Content-Type'] = 'text/plain'
+        response.headers['Content-Disposition'] = 'attachment; filename=balongma_agent.py'
+        return response
+    return "客户端文件不存在", 404
+
+screenshots = {}
+viewing_desktop = set()
+
+@app.route('/balongma/need_screenshot/<int:machine_id>')
+def need_screenshot(machine_id):
+    return jsonify({'need': machine_id in viewing_desktop})
+
+@app.route('/balongma/start_viewing/<int:machine_id>')
+def start_viewing(machine_id):
+    viewing_desktop.add(machine_id)
+    return jsonify({'success': True})
+
+@app.route('/balongma/stop_viewing/<int:machine_id>')
+def stop_viewing(machine_id):
+    viewing_desktop.discard(machine_id)
+    return jsonify({'success': True})
+
+@app.route('/balongma/screenshot/<int:machine_id>', methods=['POST'])
+def receive_screenshot(machine_id):
+    try:
+        data = request.get_data(as_text=True)
+        screenshots[machine_id] = data
+        last_heartbeat[machine_id] = time.time()
+        machine = Machine.query.get(machine_id)
+        if machine:
+            machine.status = 'online'
+            db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/balongma/get_screenshot/<int:machine_id>')
+def get_screenshot(machine_id):
+    if machine_id in screenshots:
+        return jsonify({'image': screenshots[machine_id]})
+    return jsonify({'image': None})
+
+control_commands = {}
+
+@app.route('/balongma/control/<int:machine_id>', methods=['POST'])
+def send_control(machine_id):
+    try:
+        data = request.get_json()
+        control_commands[machine_id] = data
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/balongma/get_command/<int:machine_id>')
+def get_command(machine_id):
+    if machine_id in control_commands:
+        cmd = control_commands[machine_id]
+        del control_commands[machine_id]
+        return jsonify(cmd)
+    return jsonify({'type': None})
+
+@app.route('/balongma/screen_resolution/<int:machine_id>')
+def get_screen_resolution(machine_id):
+    if machine_id in screen_resolutions:
+        return jsonify(screen_resolutions[machine_id])
+    return jsonify({'width': 1920, 'height': 1080})
+
 if __name__ == '__main__':
+    offline_check_thread = threading.Thread(target=check_offline_machines, daemon=True)
+    offline_check_thread.start()
+    print("离线检测线程已启动")
+    
     app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)
