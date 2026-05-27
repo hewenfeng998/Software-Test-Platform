@@ -17,6 +17,7 @@
         .os-icon { width: 60px; height: 60px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 32px; margin-right: 20px; }
         .os-icon.windows { background: linear-gradient(135deg, #0078D4 0%, #005A9E 100%); }
         .os-icon.linux { background: linear-gradient(135deg, #FCC624 0%, #D4A823 100%); }
+        .os-icon.python { background: linear-gradient(135deg, #3776AB 0%, #2B689A 100%); }
         .os-info { flex: 1; text-align: left; }
         .os-name { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 5px; }
         .os-desc { font-size: 13px; color: #999; }
@@ -49,6 +50,15 @@
                 <div class="os-info">
                     <div class="os-name">Linux 客户端</div>
                     <div class="os-desc">Shell脚本，适用于Linux操作系统</div>
+                </div>
+                <span class="download-arrow">↓</span>
+            </div>
+            
+            <div class="download-card" onclick="downloadClient('python')">
+                <div class="os-icon python">🐍</div>
+                <div class="os-info">
+                    <div class="os-name">Python 脚本</div>
+                    <div class="os-desc">原始Python源码，需自行安装依赖运行</div>
                 </div>
                 <span class="download-arrow">↓</span>
             </div>
