@@ -14,7 +14,8 @@ import platform
 import requests
 import threading
 
-SERVER_URL = "http://192.168.31.182:5000"
+DEFAULT_SERVER_URL = "http://192.168.31.182:5000"
+SERVER_URL = DEFAULT_SERVER_URL
 HEARTBEAT_INTERVAL = 5
 SCREENSHOT_INTERVAL = 0.15
 SCALE_FACTOR = 0.5
@@ -428,9 +429,18 @@ def send_screenshot():
         time.sleep(SCREENSHOT_INTERVAL)
 
 def main():
+    global SERVER_URL
+    
     print("=" * 60)
     print("      白龙马自动化测试 - 客户端代理")
     print("=" * 60)
+    
+    if len(sys.argv) > 1:
+        SERVER_URL = sys.argv[1]
+        print(f"使用命令行指定的服务器地址: {SERVER_URL}")
+    else:
+        print(f"使用默认服务器地址: {SERVER_URL}")
+        print("提示: 可通过命令行参数指定服务器地址，如: python client_agent.py http://your-server:5000")
     
     info = get_system_info()
     print(f"主机名: {info['hostname']}")
