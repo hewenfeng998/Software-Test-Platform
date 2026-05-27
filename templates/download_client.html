@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>白龙马自动化测试 - 客户端下载</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .download-container { background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); padding: 50px; max-width: 500px; width: 100%; text-align: center; }
+        .logo { font-size: 64px; margin-bottom: 20px; }
+        .title { font-size: 28px; font-weight: bold; color: #333; margin-bottom: 10px; }
+        .subtitle { font-size: 14px; color: #666; margin-bottom: 40px; }
+        .download-options { display: flex; flex-direction: column; gap: 20px; }
+        .download-card { display: flex; align-items: center; padding: 25px; border: 2px solid #f0f0f0; border-radius: 16px; transition: all 0.3s; cursor: pointer; }
+        .download-card:hover { border-color: #667eea; box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15); transform: translateY(-2px); }
+        .os-icon { width: 60px; height: 60px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 32px; margin-right: 20px; }
+        .os-icon.windows { background: linear-gradient(135deg, #0078D4 0%, #005A9E 100%); }
+        .os-icon.linux { background: linear-gradient(135deg, #FCC624 0%, #D4A823 100%); }
+        .os-info { flex: 1; text-align: left; }
+        .os-name { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 5px; }
+        .os-desc { font-size: 13px; color: #999; }
+        .download-arrow { font-size: 24px; color: #667eea; }
+        .tips { margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 12px; text-align: left; }
+        .tips-title { font-size: 14px; font-weight: bold; color: #333; margin-bottom: 10px; }
+        .tips-list { font-size: 13px; color: #666; line-height: 1.8; list-style-position: inside; }
+        .back-btn { display: inline-block; margin-top: 30px; padding: 12px 30px; background: #f0f0f0; color: #666; text-decoration: none; border-radius: 30px; font-size: 14px; transition: background 0.3s; }
+        .back-btn:hover { background: #e0e0e0; }
+    </style>
+</head>
+<body>
+    <div class="download-container">
+        <div class="logo">🐴</div>
+        <h1 class="title">白龙马自动化测试</h1>
+        <p class="subtitle">客户端代理下载</p>
+        
+        <div class="download-options">
+            <div class="download-card" onclick="downloadClient('windows')">
+                <div class="os-icon windows">⭐</div>
+                <div class="os-info">
+                    <div class="os-name">Windows 客户端</div>
+                    <div class="os-desc">推荐！Python打包EXE，双击即可运行</div>
+                </div>
+                <span class="download-arrow">↓</span>
+            </div>
+            
+            <div class="download-card" onclick="downloadClient('linux')">
+                <div class="os-icon linux">🐧</div>
+                <div class="os-info">
+                    <div class="os-name">Linux 客户端</div>
+                    <div class="os-desc">Shell脚本，适用于Linux操作系统</div>
+                </div>
+                <span class="download-arrow">↓</span>
+            </div>
+        </div>
+        
+        <div class="tips">
+            <div class="tips-title">💡 使用说明</div>
+            <ul class="tips-list">
+                <li>下载对应操作系统的客户端</li>
+                <li>确保客户端机器能访问服务器地址</li>
+                <li>运行后保持终端窗口打开</li>
+                <li>机器将自动注册并等待远程控制请求</li>
+            </ul>
+        </div>
+        
+        <a href="{{ url_for('balongma') }}" class="back-btn">← 返回机器管理</a>
+    </div>
+    
+    <script>
+        function downloadClient(platform) {
+            window.location.href = `/balongma/download_client?platform=${platform}`;
+        }
+    </script>
+</body>
+</html>

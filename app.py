@@ -1258,6 +1258,9 @@ def get_machines():
 
 screen_resolutions = {}
 last_heartbeat = {}
+image_qualities = {}
+dpi_scales = {}
+resolution_scales = {}
 
 @app.route('/balongma/register', methods=['POST'])
 def register_machine():
@@ -1268,6 +1271,7 @@ def register_machine():
     cpu_count = data.get('cpu_count', 0)
     screen_width = data.get('screen_width', 1920)
     screen_height = data.get('screen_height', 1080)
+    dpi_scale = data.get('dpi_scale', 1.0)
     
     machine = Machine.query.filter_by(ip_address=ip_address).first()
     
@@ -1278,7 +1282,7 @@ def register_machine():
         machine.cpu = f"{cpu_count}核"
         db.session.commit()
         last_heartbeat[machine.id] = time.time()
-        screen_resolutions[machine.id] = {'width': screen_width, 'height': screen_height}
+        screen_resolutions[machine.id] = {'width': screen_width, 'height': screen_height, 'dpi_scale': dpi_scale}
         return jsonify({'success': True, 'machine_id': machine.id})
     
     machine = Machine(
@@ -1345,24 +1349,53 @@ def force_offline(machine_id):
         return jsonify({'success': True})
     return jsonify({'success': False})
 
+@app.route('/balongma/download')
+@login_required
+def download_page():
+    return render_template('download_client.html')
+
 @app.route('/balongma/download_client')
 def download_client():
-    client_path = os.path.join(os.path.dirname(__file__), 'client_agent.py')
+    platform = request.args.get('platform', 'windows')
+    
+    server_ip = request.host.split(':')[0]
+    server_port = request.host.split(':')[1] if ':' in request.host else '5000'
+    server_url = f"http://{server_ip}:{server_port}"
+    
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    if platform == 'windows':
+        client_path = os.path.normpath(os.path.join(base_dir, 'dist', 'balongma_agent.exe'))
+        filename = 'balongma_agent.exe'
+    elif platform == 'linux':
+        client_path = os.path.normpath(os.path.join(base_dir, 'client_agent.sh'))
+        filename = 'balongma_agent.sh'
+    else:
+        client_path = os.path.normpath(os.path.join(base_dir, 'client_agent.py'))
+        filename = 'balongma_agent.py'
+    
     if os.path.exists(client_path):
-        with open(client_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+        if platform == 'windows':
+            with open(client_path, 'rb') as f:
+                content = f.read()
+            response = make_response(content)
+            response.headers['Content-Type'] = 'application/octet-stream'
+        else:
+            with open(client_path, 'r', encoding='utf-8-sig') as f:
+                content = f.read()
+            
+            content = content.replace('http://192.168.31.182:5000', server_url)
+            content = content.replace('set SERVER=http://192.168.31.182:5000', f'set SERVER={server_url}')
+            content = content.replace('$serverUrl = "http://192.168.31.182:5000"', f'$serverUrl = "{server_url}"')
+            content = content.replace('serverUrl = "http://192.168.31.182:5000"', 'serverUrl = "' + server_url + '"')
+            
+            response = make_response(content.encode('utf-8'))
+            response.headers['Content-Type'] = 'text/plain; charset=utf-8'
         
-        server_ip = request.host.split(':')[0]
-        server_port = request.host.split(':')[1] if ':' in request.host else '5000'
-        server_url = f"http://{server_ip}:{server_port}"
-        
-        content = content.replace('SERVER_URL = "http://192.168.31.182:5000"', f'SERVER_URL = "{server_url}"')
-        
-        response = make_response(content)
-        response.headers['Content-Type'] = 'text/plain'
-        response.headers['Content-Disposition'] = 'attachment; filename=balongma_agent.py'
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
         return response
-    return "客户端文件不存在", 404
+    else:
+        return f"File not found: {client_path}", 404
 
 screenshots = {}
 viewing_desktop = set()
@@ -1424,7 +1457,67 @@ def get_command(machine_id):
 def get_screen_resolution(machine_id):
     if machine_id in screen_resolutions:
         return jsonify(screen_resolutions[machine_id])
-    return jsonify({'width': 1920, 'height': 1080})
+    return jsonify({'width': 1920, 'height': 1080, 'dpi_scale': 1.0})
+
+@app.route('/balongma/set_quality/<int:machine_id>', methods=['POST'])
+def set_image_quality(machine_id):
+    data = request.get_json()
+    quality = data.get('quality', 60)
+    image_qualities[machine_id] = quality
+    return jsonify({'status': 'success', 'quality': quality})
+
+@app.route('/balongma/get_quality/<int:machine_id>')
+def get_image_quality(machine_id):
+    quality = image_qualities.get(machine_id, 60)
+    return jsonify({'quality': quality})
+
+@app.route('/balongma/set_dpi/<int:machine_id>', methods=['POST'])
+def set_dpi_scale(machine_id):
+    data = request.get_json()
+    dpi = data.get('dpi', 1.0)
+    dpi_scales[machine_id] = dpi
+    return jsonify({'status': 'success', 'dpi': dpi})
+
+@app.route('/balongma/get_dpi/<int:machine_id>')
+def get_dpi_scale(machine_id):
+    dpi = dpi_scales.get(machine_id, 1.0)
+    return jsonify({'dpi': dpi})
+
+@app.route('/balongma/set_resolution/<int:machine_id>', methods=['POST'])
+def set_resolution_scale(machine_id):
+    data = request.get_json()
+    scale = data.get('scale', 0.5)
+    resolution_scales[machine_id] = scale
+    return jsonify({'status': 'success', 'scale': scale})
+
+@app.route('/balongma/get_resolution/<int:machine_id>')
+def get_resolution_scale(machine_id):
+    scale = resolution_scales.get(machine_id, 0.5)
+    return jsonify({'scale': scale})
+
+import socket
+
+ssh_tunnels = {}
+
+def find_free_port():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(('localhost', 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
+
+from flask_sock import Sock
+import threading
+
+sock = Sock(app)
+
+@sock.route('/echo')
+def echo(ws):
+    while True:
+        data = ws.receive()
+        if not data:
+            break
+        ws.send(data)
 
 if __name__ == '__main__':
     offline_check_thread = threading.Thread(target=check_offline_machines, daemon=True)

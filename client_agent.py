@@ -16,20 +16,34 @@ import threading
 
 SERVER_URL = "http://192.168.31.182:5000"
 HEARTBEAT_INTERVAL = 5
-SCREENSHOT_INTERVAL = 0.3
-SCALE_FACTOR = 0.6
-IMAGE_QUALITY = 40
-CONTROL_INTERVAL = 0.05
+SCREENSHOT_INTERVAL = 0.15
+SCALE_FACTOR = 0.5
+IMAGE_QUALITY = 50
+CONTROL_INTERVAL = 0.02
+
+current_scale = SCALE_FACTOR
+current_dpi = 1.0
 
 machine_id = None
 
 def get_system_info():
     screen_width = 1920
     screen_height = 1080
+    dpi_scale = 1.0
+    
     try:
         if platform.system() == "Windows":
             import pyautogui
             screen_width, screen_height = pyautogui.size()
+            
+            try:
+                import ctypes
+                user32 = ctypes.windll.user32
+                user32.SetProcessDPIAware()
+                dpi_x = user32.GetDpiForSystem()
+                dpi_scale = dpi_x / 96.0
+            except Exception:
+                pass
         else:
             import subprocess
             result = subprocess.run(['xrandr'], capture_output=True, text=True)
@@ -40,6 +54,17 @@ def get_system_info():
                         if 'x' in part and '*' in part:
                             screen_width, screen_height = map(int, part.split('x')[0:2])
                             break
+                            
+            try:
+                result = subprocess.run(['xdpyinfo'], capture_output=True, text=True)
+                for line in result.stdout.split('\n'):
+                    if 'resolution:' in line:
+                        parts = line.split()
+                        dpi_x = int(parts[1].split('x')[0])
+                        dpi_scale = dpi_x / 96.0
+                        break
+            except Exception:
+                pass
     except Exception:
         pass
     
@@ -50,7 +75,8 @@ def get_system_info():
         "cpu_count": os.cpu_count(),
         "ip_address": get_local_ip(),
         "screen_width": screen_width,
-        "screen_height": screen_height
+        "screen_height": screen_height,
+        "dpi_scale": dpi_scale
     }
     return info
 
@@ -94,6 +120,32 @@ def send_heartbeat():
                 if response.status_code != 200:
                     print("心跳失败，重新注册...")
                     register_with_server()
+                
+                try:
+                    response = requests.get(
+                        f"{SERVER_URL}/balongma/get_resolution/{machine_id}",
+                        timeout=2
+                    )
+                    if response.status_code == 200:
+                        global current_scale
+                        data = response.json()
+                        current_scale = data.get('scale', SCALE_FACTOR)
+                        print(f"分辨率缩放更新为: {current_scale}")
+                except Exception as e:
+                    pass
+                
+                try:
+                    response = requests.get(
+                        f"{SERVER_URL}/balongma/get_dpi/{machine_id}",
+                        timeout=2
+                    )
+                    if response.status_code == 200:
+                        global current_dpi
+                        data = response.json()
+                        current_dpi = data.get('dpi', 1.0)
+                        print(f"DPI缩放更新为: {current_dpi}")
+                except Exception as e:
+                    pass
         except Exception as e:
             print(f"心跳失败: {e}")
         time.sleep(HEARTBEAT_INTERVAL)
@@ -102,46 +154,46 @@ def capture_screen():
     try:
         if platform.system() == "Windows":
             try:
-                import mss
-                import mss.tools
-                with mss.mss() as sct:
-                    monitor = sct.monitors[1]
-                    sct_img = sct.grab(monitor)
-                    from PIL import Image
-                    screenshot = Image.frombytes('RGB', sct_img.size, sct_img.bgra, 'raw', 'BGRX')
-                    width, height = screenshot.size
-                    new_width = int(width * SCALE_FACTOR)
-                    new_height = int(height * SCALE_FACTOR)
-                    screenshot = screenshot.resize((new_width, new_height), 1)
-                    import io
-                    buffer = io.BytesIO()
-                    screenshot.save(buffer, format='JPEG', quality=IMAGE_QUALITY, optimize=True)
-                    data = buffer.getvalue()
-                    print(f"截图成功，大小: {len(data)/1024:.1f} KB, 分辨率: {new_width}x{new_height}")
-                    return data
+                import pyautogui
+                screenshot = pyautogui.screenshot()
+                width, height = screenshot.size
+                new_width = int(width * current_scale)
+                new_height = int(height * current_scale)
+                screenshot = screenshot.resize((new_width, new_height), 1)
+                import io
+                buffer = io.BytesIO()
+                screenshot.save(buffer, format='JPEG', quality=IMAGE_QUALITY, optimize=True)
+                data = buffer.getvalue()
+                print(f"截图成功，大小: {len(data)/1024:.1f} KB, 分辨率: {new_width}x{new_height}, 缩放: {current_scale}")
+                return data
             except Exception as e:
-                print(f"mss截图失败: {e}")
+                print(f"pyautogui截图失败: {e}")
                 try:
-                    import pyautogui
-                    screenshot = pyautogui.screenshot()
-                    width, height = screenshot.size
-                    new_width = int(width * SCALE_FACTOR)
-                    new_height = int(height * SCALE_FACTOR)
-                    screenshot = screenshot.resize((new_width, new_height), 1)
-                    import io
-                    buffer = io.BytesIO()
-                    screenshot.save(buffer, format='JPEG', quality=IMAGE_QUALITY, optimize=True)
-                    data = buffer.getvalue()
-                    print(f"pyautogui截图成功，大小: {len(data)/1024:.1f} KB, 分辨率: {new_width}x{new_height}")
-                    return data
+                    import mss
+                    import mss.tools
+                    with mss.mss() as sct:
+                        monitor = sct.monitors[0]
+                        sct_img = sct.grab(monitor)
+                        from PIL import Image
+                        screenshot = Image.frombytes('RGB', sct_img.size, sct_img.bgra, 'raw', 'BGRX')
+                        width, height = screenshot.size
+                        new_width = int(width * current_scale)
+                        new_height = int(height * current_scale)
+                        screenshot = screenshot.resize((new_width, new_height), 1)
+                        import io
+                        buffer = io.BytesIO()
+                        screenshot.save(buffer, format='JPEG', quality=IMAGE_QUALITY, optimize=True)
+                        data = buffer.getvalue()
+                        print(f"mss截图成功，大小: {len(data)/1024:.1f} KB, 分辨率: {new_width}x{new_height}, 缩放: {current_scale}")
+                        return data
                 except Exception as e2:
-                    print(f"pyautogui截图失败: {e2}")
+                    print(f"mss截图也失败: {e2}")
                     try:
                         from PIL import ImageGrab
                         screenshot = ImageGrab.grab()
                         width, height = screenshot.size
-                        new_width = int(width * SCALE_FACTOR)
-                        new_height = int(height * SCALE_FACTOR)
+                        new_width = int(width * current_scale)
+                        new_height = int(height * current_scale)
                         screenshot = screenshot.resize((new_width, new_height), 1)
                         import io
                         buffer = io.BytesIO()
@@ -157,8 +209,8 @@ def capture_screen():
                 from PIL import ImageGrab
                 screenshot = ImageGrab.grab()
                 width, height = screenshot.size
-                new_width = int(width * SCALE_FACTOR)
-                new_height = int(height * SCALE_FACTOR)
+                new_width = int(width * current_scale)
+                new_height = int(height * current_scale)
                 screenshot = screenshot.resize((new_width, new_height), 1)
                 import io
                 buffer = io.BytesIO()
@@ -204,6 +256,30 @@ def execute_control():
                 pass
         time.sleep(CONTROL_INTERVAL)
 
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
+
+def update_screen_size():
+    global SCREEN_WIDTH, SCREEN_HEIGHT
+    try:
+        if platform.system() == "Windows":
+            import pyautogui
+            SCREEN_WIDTH, SCREEN_HEIGHT = pyautogui.size()
+        else:
+            import subprocess
+            result = subprocess.run(['xrandr'], capture_output=True, text=True)
+            for line in result.stdout.split('\n'):
+                if '*' in line and '+' in line:
+                    parts = line.split()
+                    for part in parts:
+                        if 'x' in part and '*' in part:
+                            SCREEN_WIDTH, SCREEN_HEIGHT = map(int, part.split('x')[0:2])
+                            break
+    except Exception:
+        pass
+
+update_screen_size()
+
 def process_command(cmd):
     cmd_type = cmd.get('type')
     
@@ -213,16 +289,41 @@ def process_command(cmd):
             pyautogui.FAILSAFE = False
             
             if cmd_type == 'move':
-                x = int(cmd.get('x', 0) / SCALE_FACTOR)
-                y = int(cmd.get('y', 0) / SCALE_FACTOR)
+                x_ratio = cmd.get('x', 0)
+                y_ratio = cmd.get('y', 0)
+                x = int(x_ratio * SCREEN_WIDTH)
+                y = int(y_ratio * SCREEN_HEIGHT)
                 pyautogui.moveTo(x, y, duration=0)
+                print(f"移动鼠标到: ({x}, {y}), 屏幕: {SCREEN_WIDTH}x{SCREEN_HEIGHT}")
                 
             elif cmd_type == 'click':
                 button = cmd.get('button', 'left')
-                if button == 'left':
-                    pyautogui.click()
-                elif button == 'right':
-                    pyautogui.click(button='right')
+                x_ratio = cmd.get('x')
+                y_ratio = cmd.get('y')
+                is_down = cmd.get('down', False)
+                is_up = cmd.get('up', False)
+                
+                if x_ratio is not None and y_ratio is not None:
+                    x = int(x_ratio * SCREEN_WIDTH)
+                    y = int(y_ratio * SCREEN_HEIGHT)
+                    pyautogui.moveTo(x, y, duration=0)
+                    print(f"点击位置: ({x}, {y}), 按钮: {button}, 屏幕: {SCREEN_WIDTH}x{SCREEN_HEIGHT}")
+                
+                if is_down:
+                    if button == 'left':
+                        pyautogui.mouseDown(button='left')
+                    elif button == 'right':
+                        pyautogui.mouseDown(button='right')
+                elif is_up:
+                    if button == 'left':
+                        pyautogui.mouseUp(button='left')
+                    elif button == 'right':
+                        pyautogui.mouseUp(button='right')
+                else:
+                    if button == 'left':
+                        pyautogui.click()
+                    elif button == 'right':
+                        pyautogui.click(button='right')
                     
             elif cmd_type == 'scroll':
                 delta = cmd.get('delta', 0)
@@ -243,16 +344,39 @@ def process_command(cmd):
             keyboard = KeyboardController()
             
             if cmd_type == 'move':
-                x = int(cmd.get('x', 0) / SCALE_FACTOR)
-                y = int(cmd.get('y', 0) / SCALE_FACTOR)
+                x_ratio = cmd.get('x', 0)
+                y_ratio = cmd.get('y', 0)
+                x = int(x_ratio * SCREEN_WIDTH)
+                y = int(y_ratio * SCREEN_HEIGHT)
                 mouse.position = (x, y)
                 
             elif cmd_type == 'click':
                 button = cmd.get('button', 'left')
-                if button == 'left':
-                    mouse.click(Button.left)
-                elif button == 'right':
-                    mouse.click(Button.right)
+                x_ratio = cmd.get('x')
+                y_ratio = cmd.get('y')
+                is_down = cmd.get('down', False)
+                is_up = cmd.get('up', False)
+                
+                if x_ratio is not None and y_ratio is not None:
+                    x = int(x_ratio * SCREEN_WIDTH)
+                    y = int(y_ratio * SCREEN_HEIGHT)
+                    mouse.position = (x, y)
+                
+                if is_down:
+                    if button == 'left':
+                        mouse.press(Button.left)
+                    elif button == 'right':
+                        mouse.press(Button.right)
+                elif is_up:
+                    if button == 'left':
+                        mouse.release(Button.left)
+                    elif button == 'right':
+                        mouse.release(Button.right)
+                else:
+                    if button == 'left':
+                        mouse.click(Button.left)
+                    elif button == 'right':
+                        mouse.click(Button.right)
                     
             elif cmd_type == 'scroll':
                 delta = cmd.get('delta', 0)
@@ -267,7 +391,7 @@ def process_command(cmd):
                 keyboard.press(getattr(Key, key, key))
                 keyboard.release(getattr(Key, key, key))
                 
-        print(f"执行命令: {cmd_type}")
+        print(f"执行命令: {cmd_type}, DPI缩放: {current_dpi}")
     except Exception as e:
         print(f"执行命令失败: {e}")
 
