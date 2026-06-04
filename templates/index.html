@@ -9,18 +9,18 @@
         {% for task in tasks %}
         {
             id: {{ task.id }},
-            title: "{{ task.title | replace('"', '\\"') }}",
-            description: "{{ task.description | replace('"', '\\"') if task.description else '' }}",
-            status: "{{ task.status }}",
-            priority: "{{ task.priority }}",
-            submitter: "{{ task.submitter if task.submitter else '' }}",
-            tester: "{{ task.tester if task.tester else '' }}",
-            industry: "{{ task.industry if task.industry else '' }}",
-            jiraLink: "{{ task.jira_link if task.jira_link else '' }}",
-            startDate: "{{ task.start_date.strftime('%Y-%m-%d') if task.start_date else '' }}",
-            endDate: "{{ task.end_date.strftime('%Y-%m-%d') if task.end_date else '' }}",
+            title: {{ task.title | tojson }},
+            description: {{ task.description | tojson }},
+            status: {{ task.status | tojson }},
+            priority: {{ task.priority | tojson }},
+            submitter: {{ task.submitter | tojson }},
+            tester: {{ task.tester | tojson }},
+            industry: {{ task.industry | tojson }},
+            jiraLink: {{ task.jira_link | tojson }},
+            startDate: {% if task.start_date %}"{{ task.start_date.strftime('%Y-%m-%d') }}"{% else %}null{% endif %},
+            endDate: {% if task.end_date %}"{{ task.end_date.strftime('%Y-%m-%d') }}"{% else %}null{% endif %},
             progress: {{ task.progress }},
-            blockers: "{{ task.blockers | replace('"', '\\"') if task.blockers else '' }}",
+            blockers: {{ task.blockers | tojson }},
             createdAt: "{{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') }}"
         }{% if not loop.last %},{% endif %}
         {% endfor %}
