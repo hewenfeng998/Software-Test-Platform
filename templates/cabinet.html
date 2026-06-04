@@ -157,10 +157,7 @@
 
     <script>
         function openCabinet(url, title) {
-            document.getElementById('iframeTitle').textContent = title;
-            document.getElementById('cabinetFrame').src = url;
-            document.getElementById('iframeContainer').style.display = 'block';
-            document.querySelector('.container').style.display = 'none';
+            window.open(url, '_blank');
         }
 
         function closeCabinet() {
