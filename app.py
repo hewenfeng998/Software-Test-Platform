@@ -648,6 +648,9 @@ def gantt():
             'di_value': task.di_value or '-'
         })
     
+    for tester in tester_tasks:
+        tester_tasks[tester].sort(key=lambda x: x['start'] if x['start'] else '9999-12-31')
+    
     return render_template('gantt.html', tester_tasks=tester_tasks)
 
 @app.route('/analysis')
