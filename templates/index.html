@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>项目任务登记平台</title>
-    <style>
-        * {
-            margin: 0;<script>
+    <script>
     var tasksData = [
         {% for task in tasks %}
         {
@@ -46,7 +44,79 @@
     function closeModal() {
         document.getElementById('detailModal').style.display = 'none';
     }
-</script>
+
+    function toggleMultiSelect() {
+        var container = document.querySelectorAll('.multi-select-container')[0];
+        container.classList.toggle('open');
+    }
+
+    function toggleSelectAll() {
+        var selectAll = document.getElementById('select-all');
+        var checkboxes = document.querySelectorAll('input[name="tester_filter"]');
+        checkboxes.forEach(function(cb) {
+            cb.checked = selectAll.checked;
+        });
+        updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+        var checkboxes = document.querySelectorAll('input[name="tester_filter"]:checked');
+        var selectedCount = checkboxes.length;
+        var selectedSpan = document.getElementById('selected-testers');
+        
+        if (selectedCount === 0) {
+            selectedSpan.textContent = '请选择';
+        } else if (selectedCount === document.querySelectorAll('input[name="tester_filter"]').length) {
+            selectedSpan.textContent = '全部';
+            document.getElementById('select-all').checked = true;
+        } else {
+            selectedSpan.textContent = selectedCount + '人已选';
+            document.getElementById('select-all').checked = false;
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        var containers = document.querySelectorAll('.multi-select-container');
+        containers.forEach(function(container) {
+            if (!container.contains(e.target)) {
+                container.classList.remove('open');
+            }
+        });
+    });
+
+    function toggleStatusMultiSelect() {
+        var container = document.querySelectorAll('.multi-select-container')[1];
+        container.classList.toggle('open');
+    }
+
+    function toggleSelectAllStatus() {
+        var selectAll = document.getElementById('select-all-status');
+        var checkboxes = document.querySelectorAll('input[name="status_filter"]');
+        checkboxes.forEach(function(cb) {
+            cb.checked = selectAll.checked;
+        });
+        updateSelectedStatusCount();
+    }
+
+    function updateSelectedStatusCount() {
+        var checkboxes = document.querySelectorAll('input[name="status_filter"]:checked');
+        var selectedCount = checkboxes.length;
+        var selectedSpan = document.getElementById('selected-status');
+        
+        if (selectedCount === 0) {
+            selectedSpan.textContent = '请选择';
+        } else if (selectedCount === document.querySelectorAll('input[name="status_filter"]').length) {
+            selectedSpan.textContent = '全部';
+            document.getElementById('select-all-status').checked = true;
+        } else {
+            selectedSpan.textContent = selectedCount + '项已选';
+            document.getElementById('select-all-status').checked = false;
+        }
+    }
+    </script>
+    <style>
+        * {
+            margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
@@ -104,6 +174,65 @@
             color: white;
             border: none;
             cursor: pointer;
+        }
+        .multi-select-container {
+            position: relative;
+            min-width: 120px;
+        }
+        .multi-select-trigger {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            background-color: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .multi-select-arrow {
+            font-size: 10px;
+            color: #666;
+            transition: transform 0.2s;
+        }
+        .multi-select-container.open .multi-select-arrow {
+            transform: rotate(180deg);
+        }
+        .multi-select-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: none;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+        .multi-select-container.open .multi-select-dropdown {
+            display: block;
+        }
+        .multi-select-option {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+        .multi-select-option:hover {
+            background-color: #f5f5f5;
+        }
+        .multi-select-option input[type="checkbox"] {
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        .multi-select-option:last-child {
+            border-bottom: none;
         }
         .filter-form button:hover {
             background-color: #1976D2;
@@ -458,19 +587,57 @@
             <label>标题搜索:</label>
             <input type="text" name="search" placeholder="输入标题关键词..." value="{{ search_keyword or '' }}" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
             <label>测试人员:</label>
-            <select name="tester_filter" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
-                <option value="all" {% if tester_filter == 'all' or tester_filter is none or tester_filter == '' %}selected{% endif %}>全部</option>
-                {% for tester in tester_list %}
-                <option value="{{ tester }}" {% if tester_filter == tester %}selected{% endif %}>{{ tester }}</option>
-                {% endfor %}
-            </select>
+            <div class="multi-select-container">
+                <div class="multi-select-trigger" onclick="toggleMultiSelect()">
+                    <span id="selected-testers">{% if tester_filter_list|length > 0 and tester_filter_list != ['all'] %}{{ tester_filter_list|length }}人已选{% else %}请选择{% endif %}</span>
+                    <span class="multi-select-arrow">▼</span>
+                </div>
+                <div class="multi-select-dropdown" id="multi-select-dropdown">
+                    <label class="multi-select-option">
+                        <input type="checkbox" id="select-all" {% if not tester_filter_list or tester_filter_list == ['all'] %}checked{% endif %} onchange="toggleSelectAll()">
+                        <span>全部</span>
+                    </label>
+                    {% for tester in tester_list %}
+                    <label class="multi-select-option">
+                        <input type="checkbox" name="tester_filter" value="{{ tester }}" {% if tester in tester_filter_list %}checked{% endif %} onchange="updateSelectedCount()">
+                        <span>{{ tester }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
             <label>状态筛选:</label>
-            <select name="status_filter" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
-                <option value="all" {% if status_filter == 'all' or status_filter is none or status_filter == '' %}selected{% endif %}>全部</option>
-                <option value="待处理" {% if status_filter == '待处理' %}selected{% endif %}>待处理</option>
-                <option value="进行中" {% if status_filter == '进行中' %}selected{% endif %}>进行中</option>
-                <option value="已完成" {% if status_filter == '已完成' %}selected{% endif %}>已完成</option>
-            </select>
+            <div class="multi-select-container">
+                <div class="multi-select-trigger" onclick="toggleStatusMultiSelect()">
+                    <span id="selected-status">{% if status_filter_list|length > 0 and status_filter_list != ['all'] %}{{ status_filter_list|length }}项已选{% else %}全部{% endif %}</span>
+                    <span class="multi-select-arrow">▼</span>
+                </div>
+                <div class="multi-select-dropdown" id="status-multi-select-dropdown">
+                    <label class="multi-select-option">
+                        <input type="checkbox" id="select-all-status" {% if not status_filter_list or status_filter_list == ['all'] %}checked{% endif %} onchange="toggleSelectAllStatus()">
+                        <span>全部</span>
+                    </label>
+                    <label class="multi-select-option">
+                        <input type="checkbox" name="status_filter" value="待处理" {% if '待处理' in status_filter_list %}checked{% endif %} onchange="updateSelectedStatusCount()">
+                        <span>待处理</span>
+                    </label>
+                    <label class="multi-select-option">
+                        <input type="checkbox" name="status_filter" value="进行中" {% if '进行中' in status_filter_list %}checked{% endif %} onchange="updateSelectedStatusCount()">
+                        <span>进行中</span>
+                    </label>
+                    <label class="multi-select-option">
+                        <input type="checkbox" name="status_filter" value="已完成" {% if '已完成' in status_filter_list %}checked{% endif %} onchange="updateSelectedStatusCount()">
+                        <span>已完成</span>
+                    </label>
+                    <label class="multi-select-option">
+                        <input type="checkbox" name="status_filter" value="异常中断" {% if '异常中断' in status_filter_list %}checked{% endif %} onchange="updateSelectedStatusCount()">
+                        <span>异常中断</span>
+                    </label>
+                    <label class="multi-select-option">
+                        <input type="checkbox" name="status_filter" value="送测打回" {% if '送测打回' in status_filter_list %}checked{% endif %} onchange="updateSelectedStatusCount()">
+                        <span>送测打回</span>
+                    </label>
+                </div>
+            </div>
             <label>开始时间筛选:</label>
             <input type="date" name="start_filter" value="{{ start_filter or '' }}">
             <label>结束时间筛选:</label>
@@ -561,7 +728,7 @@
         <div style="text-align: center; margin-top: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
             <div style="display: inline-flex; align-items: center; gap: 10px;">
                 {% if pagination.has_prev %}
-                <a href="?page={{ pagination.prev_num }}{% if search_keyword %}&search={{ search_keyword }}{% endif %}{% if tester_filter and tester_filter != 'all' %}&tester_filter={{ tester_filter }}{% endif %}{% if status_filter and status_filter != 'all' %}&status_filter={{ status_filter }}{% endif %}{% if start_filter %}&start_filter={{ start_filter }}{% endif %}{% if end_filter %}&end_filter={{ end_filter }}{% endif %}" style="padding: 8px 16px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">上一页</a>
+                <a href="?page={{ pagination.prev_num }}{% if search_keyword %}&search={{ search_keyword }}{% endif %}{% for tester in tester_filter_list if tester and tester != 'all' %}&tester_filter={{ tester }}{% endfor %}{% for status in status_filter_list if status and status != 'all' %}&status_filter={{ status }}{% endfor %}{% if start_filter %}&start_filter={{ start_filter }}{% endif %}{% if end_filter %}&end_filter={{ end_filter }}{% endif %}" style="padding: 8px 16px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">上一页</a>
                 {% else %}
                 <span style="padding: 8px 16px; background: #eee; color: #999; border-radius: 4px; font-size: 14px;">上一页</span>
                 {% endif %}
@@ -569,7 +736,7 @@
                 <span style="color: #666; font-size: 14px;">第 {{ current_page }} / {{ pagination.pages }} 页</span>
                 
                 {% if pagination.has_next %}
-                <a href="?page={{ pagination.next_num }}{% if search_keyword %}&search={{ search_keyword }}{% endif %}{% if tester_filter and tester_filter != 'all' %}&tester_filter={{ tester_filter }}{% endif %}{% if status_filter and status_filter != 'all' %}&status_filter={{ status_filter }}{% endif %}{% if start_filter %}&start_filter={{ start_filter }}{% endif %}{% if end_filter %}&end_filter={{ end_filter }}{% endif %}" style="padding: 8px 16px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">下一页</a>
+                <a href="?page={{ pagination.next_num }}{% if search_keyword %}&search={{ search_keyword }}{% endif %}{% for tester in tester_filter_list if tester and tester != 'all' %}&tester_filter={{ tester }}{% endfor %}{% for status in status_filter_list if status and status != 'all' %}&status_filter={{ status }}{% endfor %}{% if start_filter %}&start_filter={{ start_filter }}{% endif %}{% if end_filter %}&end_filter={{ end_filter }}{% endif %}" style="padding: 8px 16px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">下一页</a>
                 {% else %}
                 <span style="padding: 8px 16px; background: #eee; color: #999; border-radius: 4px; font-size: 14px;">下一页</span>
                 {% endif %}

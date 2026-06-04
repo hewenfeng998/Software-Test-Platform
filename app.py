@@ -363,8 +363,10 @@ def index():
     if search_keyword:
         tasks = tasks.filter(Task.title.like(f'%{search_keyword}%'))
 
-    if tester_filter and tester_filter != 'all':
-        tasks = tasks.filter(Task.tester == tester_filter)
+    tester_filters = request.args.getlist('tester_filter')
+    if tester_filters and tester_filters != ['all'] and tester_filters != []:
+        if 'all' not in tester_filters:
+            tasks = tasks.filter(Task.tester.in_(tester_filters))
 
     if start_filter:
         try:
@@ -380,8 +382,10 @@ def index():
         except:
             pass
 
-    if status_filter and status_filter != 'all':
-        tasks = tasks.filter(Task.status == status_filter)
+    status_filters = request.args.getlist('status_filter')
+    if status_filters and status_filters != ['all'] and status_filters != []:
+        if 'all' not in status_filters:
+            tasks = tasks.filter(Task.status.in_(status_filters))
 
     tasks = tasks.order_by(Task.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     
@@ -392,8 +396,10 @@ def index():
                            pagination=tasks,
                            start_filter=start_filter, end_filter=end_filter,
                            status_filter=status_filter,
+                           status_filter_list=status_filters,
                            search_keyword=search_keyword,
                            tester_filter=tester_filter,
+                           tester_filter_list=tester_filters,
                            is_admin=user.is_admin(),
                            tester_list=tester_list,
                            can_edit=user.can_edit(),
