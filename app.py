@@ -58,6 +58,7 @@ class User(db.Model):
     name = db.Column(db.String(50), nullable=True)
     is_active = db.Column(db.Boolean, default=False)
     role = db.Column(db.String(20), default='viewer')
+    can_access_performance = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):
@@ -71,6 +72,9 @@ class User(db.Model):
     
     def can_delete(self):
         return self.role == 'admin'
+    
+    def can_access_performance(self):
+        return self.can_access_performance or self.role == 'admin'
     
     def can_view(self):
         return self.role in ['admin', 'editor', 'viewer']
@@ -488,13 +492,27 @@ def get_local_ip():
     except:
         return '127.0.0.1'
 
+@app.route('/performance')
+@login_required
+def performance():
+    user = User.query.get(session['user_id'])
+    if not user.can_access_performance():
+        abort(403)
+    
+    return render_template('performance.html', user=user)
+
 @app.route('/')
 @login_required
 def home():
     user = User.query.get(session['user_id'])
     hostname = socket.gethostname()
     local_ip = get_local_ip()
-    return render_template('home.html', is_admin=user.is_admin(), role=user.role, hostname=hostname, local_ip=local_ip)
+    return render_template('home.html', 
+                           is_admin=user.is_admin(), 
+                           role=user.role, 
+                           can_access_performance=user.can_access_performance(),
+                           hostname=hostname, 
+                           local_ip=local_ip)
 
 @app.route('/project')
 @login_required
@@ -847,9 +865,13 @@ def analysis():
         end_date = datetime(year + 1, 1, 1)
         period_name = f"{year}年度"
 
+    start_date_only = start_date.date() if isinstance(start_date, datetime) else start_date
+    end_date_only = end_date.date() if isinstance(end_date, datetime) else end_date
+    
     tasks = Task.query.filter(
-        Task.created_at >= start_date,
-        Task.created_at < end_date
+        Task.start_date.isnot(None),
+        Task.start_date >= start_date_only,
+        Task.start_date < end_date_only
     )
 
     if industry_filter and industry_filter != 'all':
@@ -878,12 +900,20 @@ def analysis():
         if task.blockers:
             blocker_count += 1
 
+    round_pass_counts = {}
+    for round_name in TEST_ROUND_OPTIONS:
+        round_tasks = [t for t in tasks if t.test_round == round_name]
+        round_pass = sum(1 for t in round_tasks if t.test_result == 'PASS')
+        round_pass_counts[round_name] = round_pass
+    
+    total_pass = sum(round_pass_counts.values())
+    
     for round_name in TEST_ROUND_OPTIONS:
         round_tasks = [t for t in tasks if t.test_round == round_name]
         round_total = len(round_tasks)
-        round_pass = sum(1 for t in round_tasks if t.test_result == 'PASS')
-        if round_total > 0:
-            test_round_pass_rate[round_name] = {'total': round_total, 'pass': round_pass, 'rate': round((round_pass / round_total) * 100, 1)}
+        round_pass = round_pass_counts[round_name]
+        if total_pass > 0:
+            test_round_pass_rate[round_name] = {'total': round_total, 'pass': round_pass, 'rate': round((round_pass / total_pass) * 100, 1)}
         else:
             test_round_pass_rate[round_name] = {'total': round_total, 'pass': round_pass, 'rate': 0}
 
@@ -1072,9 +1102,12 @@ def export_analysis():
         end_date = datetime(year + 1, 1, 1)
         period_name = f"{year}年度"
 
+    start_date_only = start_date.date() if isinstance(start_date, datetime) else start_date
+    end_date_only = end_date.date() if isinstance(end_date, datetime) else end_date
+    
     query = Task.query.filter(
-        Task.created_at >= start_date,
-        Task.created_at < end_date
+        Task.start_date >= start_date_only,
+        Task.start_date < end_date_only
     )
 
     if industry_filter != 'all' and industry_filter:
@@ -1124,12 +1157,20 @@ def export_analysis():
             rejected_count += 1
             rejected_tasks.append(task)
 
+    round_pass_counts = {}
+    for round_name in TEST_ROUND_OPTIONS:
+        round_tasks = [t for t in tasks if t.test_round == round_name]
+        round_pass = sum(1 for t in round_tasks if t.test_result == 'PASS')
+        round_pass_counts[round_name] = round_pass
+    
+    total_pass = sum(round_pass_counts.values())
+    
     for round_name in TEST_ROUND_OPTIONS:
         round_tasks = [t for t in tasks if t.test_round == round_name]
         round_total = len(round_tasks)
-        round_pass = sum(1 for t in round_tasks if t.test_result == 'PASS')
-        if round_total > 0:
-            test_round_pass_rate[round_name] = {'total': round_total, 'pass': round_pass, 'rate': round((round_pass / round_total) * 100, 1)}
+        round_pass = round_pass_counts[round_name]
+        if total_pass > 0:
+            test_round_pass_rate[round_name] = {'total': round_total, 'pass': round_pass, 'rate': round((round_pass / total_pass) * 100, 1)}
         else:
             test_round_pass_rate[round_name] = {'total': round_total, 'pass': round_pass, 'rate': 0}
 
@@ -1249,6 +1290,7 @@ def set_role(user_id):
         new_role = request.form['role']
         if new_role in ['admin', 'editor', 'viewer']:
             user.role = new_role
+            user.can_access_performance = 'performance_access' in request.form
             db.session.commit()
             role_name = dict(ROLES).get(new_role, new_role)
             flash(f'已将用户 {user.username} 的权限设置为 {role_name}')
@@ -1338,9 +1380,12 @@ def send_report_to_feishu():
         end_date = datetime(year + 1, 1, 1)
         period_name = f"{year}年度"
 
+    start_date_only = start_date.date() if isinstance(start_date, datetime) else start_date
+    end_date_only = end_date.date() if isinstance(end_date, datetime) else end_date
+    
     query = Task.query.filter(
-        Task.created_at >= start_date,
-        Task.created_at < end_date
+        Task.start_date >= start_date_only,
+        Task.start_date < end_date_only
     )
 
     if industry_filter != 'all' and industry_filter:
@@ -1368,12 +1413,20 @@ def send_report_to_feishu():
         if task.tester:
             tester_counts[task.tester] += 1
 
+    round_pass_counts = {}
+    for round_name in TEST_ROUND_OPTIONS:
+        round_tasks = [t for t in tasks if t.test_round == round_name]
+        round_pass = sum(1 for t in round_tasks if t.test_result == 'PASS')
+        round_pass_counts[round_name] = round_pass
+    
+    total_pass = sum(round_pass_counts.values())
+    
     for round_name in TEST_ROUND_OPTIONS:
         round_tasks = [t for t in tasks if t.test_round == round_name]
         round_total = len(round_tasks)
-        round_pass = sum(1 for t in round_tasks if t.test_result == 'PASS')
-        if round_total > 0:
-            test_round_pass_rate[round_name] = {'total': round_total, 'pass': round_pass, 'rate': round((round_pass / round_total) * 100, 1)}
+        round_pass = round_pass_counts[round_name]
+        if total_pass > 0:
+            test_round_pass_rate[round_name] = {'total': round_total, 'pass': round_pass, 'rate': round((round_pass / total_pass) * 100, 1)}
         else:
             test_round_pass_rate[round_name] = {'total': round_total, 'pass': round_pass, 'rate': 0}
 

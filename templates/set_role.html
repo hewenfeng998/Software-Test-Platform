@@ -151,6 +151,15 @@
                     {% endfor %}
                 </select>
             </div>
+            
+            <div class="form-group">
+                <label for="performance_access" style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="performance_access" name="performance_access" {% if user.can_access_performance %}checked{% endif %}>
+                    允许访问绩效管理
+                </label>
+                <p style="font-size: 13px; color: #666; margin-top: 5px;">勾选后，该用户可以在首页看到并访问绩效管理模块</p>
+            </div>
+            
             <div class="btn-group">
                 <button type="submit" class="submit-btn">确认设置</button>
                 <a href="{{ url_for('admin_dashboard') }}" class="cancel-btn">取消</a>

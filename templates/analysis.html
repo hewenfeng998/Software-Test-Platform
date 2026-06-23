@@ -583,7 +583,7 @@
                                 -
                                 {% endif %}
                             </td>
-                            <td>{{ task.di_value or '-' }}</td>
+                            <td>{% if task.di_value is defined and task.di_value != '' %}{{ task.di_value }}{% else %}-{% endif %}</td>
                             <td>{{ task.progress }}%</td>
                         </tr>
                         {% endfor %}

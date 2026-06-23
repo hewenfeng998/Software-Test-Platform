@@ -64,9 +64,9 @@
         }
         .menu-grid {
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
+            grid-template-columns: repeat(7, 1fr);
             gap: 25px;
-            max-width: 1600px;
+            max-width: 1800px;
             margin: 0 auto;
         }
         .menu-card {
@@ -135,6 +135,13 @@
         }
         .menu-card.tools:hover .menu-title,
         .menu-card.tools:hover .menu-desc {
+            color: white;
+        }
+        .menu-card.performance:hover {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+        .menu-card.performance:hover .menu-title,
+        .menu-card.performance:hover .menu-desc {
             color: white;
         }
         .footer {
@@ -216,6 +223,14 @@
                 <div class="menu-title">测试工具</div>
                 <div class="menu-desc">工具上传与下载</div>
             </a>
+
+            {% if can_access_performance %}
+            <a href="{{ url_for('performance') }}" class="menu-card performance">
+                <div class="menu-icon">📊</div>
+                <div class="menu-title">绩效管理</div>
+                <div class="menu-desc">员工绩效评估与管理</div>
+            </a>
+            {% endif %}
         </div>
 
         <div class="footer">
