@@ -48,6 +48,25 @@
         .export-btn:hover {
             background-color: #45a049;
         }
+        .feishu-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #07C160;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .feishu-btn:hover {
+            background-color: #06AD56;
+        }
+        .feishu-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
         .month-selector {
             background-color: white;
             padding: 20px;
@@ -242,7 +261,8 @@
         
         <div style="display: flex; gap: 15px; margin-bottom: 20px;">
             <a href="{{ url_for('index') }}" class="back-btn">← 返回任务列表</a>
-            <a href="{{ url_for('export_analysis', year=year, month=month, period_type=period_type) }}" class="export-btn">📥 导出HTML报告</a>
+            <a href="{{ url_for('export_analysis', year=year, month=month, period_type=period_type, industry_filter=industry_filter) }}" class="export-btn">📥 导出HTML报告</a>
+            <button onclick="sendReportToFeishu()" class="feishu-btn">📤 发送报告到飞书</button>
         </div>
         
         <div class="month-selector">
@@ -574,5 +594,49 @@
             {% endif %}
         </div>
     </div>
+
+    <script>
+        function sendReportToFeishu() {
+            var btn = document.querySelector('.feishu-btn');
+            btn.disabled = true;
+            btn.innerHTML = '📤 发送中...';
+            
+            var urlParams = new URLSearchParams(window.location.search);
+            var periodType = urlParams.get('period_type') || 'monthly';
+            var year = urlParams.get('year') || new Date().getFullYear();
+            var month = urlParams.get('month') || 1;
+            var quarter = urlParams.get('quarter') || 1;
+            var industryFilter = urlParams.get('industry_filter') || 'all';
+            
+            var url = "{{ url_for('send_report_to_feishu') }}";
+            url += '?period_type=' + periodType;
+            url += '&year=' + year;
+            url += '&month=' + month;
+            url += '&quarter=' + quarter;
+            url += '&industry_filter=' + industryFilter;
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('报告已成功发送到飞书群！');
+                } else {
+                    alert('发送失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('发送失败，请稍后重试');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '📤 发送报告到飞书';
+            });
+        }
+    </script>
 </body>
 </html>
