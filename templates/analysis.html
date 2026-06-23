@@ -604,8 +604,8 @@
             var urlParams = new URLSearchParams(window.location.search);
             var periodType = urlParams.get('period_type') || 'monthly';
             var year = urlParams.get('year') || new Date().getFullYear();
-            var month = urlParams.get('month') || 1;
-            var quarter = urlParams.get('quarter') || 1;
+            var month = urlParams.get('month') || (new Date().getMonth() + 1);
+            var quarter = urlParams.get('quarter') || Math.ceil((new Date().getMonth() + 1) / 3);
             var industryFilter = urlParams.get('industry_filter') || 'all';
             
             var url = "{{ url_for('send_report_to_feishu') }}";

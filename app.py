@@ -1097,6 +1097,8 @@ def export_analysis():
     test_round_pass_rate = {}
     blocker_tasks = []
     rejected_tasks = []
+    industry_counts = defaultdict(int)
+    tester_counts = defaultdict(int)
 
     for task in tasks:
         status_counts[task.status] += 1
@@ -1106,6 +1108,10 @@ def export_analysis():
         if task.blockers and task.blockers.strip():
             blocker_count += 1
             blocker_tasks.append(task)
+        if task.industry:
+            industry_counts[task.industry] += 1
+        if task.tester:
+            tester_counts[task.tester] += 1
         if task.status == '待处理':
             pending_count += 1
         elif task.status == '进行中':
@@ -1168,6 +1174,8 @@ def export_analysis():
                                    test_round_pass_rate=test_round_pass_rate,
                                    blocker_tasks=blocker_tasks,
                                    rejected_tasks=rejected_tasks,
+                                   industry_counts=industry_counts,
+                                   tester_counts=tester_counts,
                                    total_tasks=total_tasks,
                                    pending_count=pending_count,
                                    progress_count=progress_count,
@@ -1346,6 +1354,8 @@ def send_report_to_feishu():
     avg_progress = 0
     blocker_count = 0
     test_round_pass_rate = {}
+    industry_counts = defaultdict(int)
+    tester_counts = defaultdict(int)
 
     for task in tasks:
         status_counts[task.status] += 1
@@ -1353,6 +1363,10 @@ def send_report_to_feishu():
         avg_progress += task.progress
         if task.blockers and task.blockers.strip():
             blocker_count += 1
+        if task.industry:
+            industry_counts[task.industry] += 1
+        if task.tester:
+            tester_counts[task.tester] += 1
 
     for round_name in TEST_ROUND_OPTIONS:
         round_tasks = [t for t in tasks if t.test_round == round_name]
@@ -1384,6 +1398,8 @@ def send_report_to_feishu():
                                    test_round_pass_rate=test_round_pass_rate,
                                    blocker_tasks=blocker_tasks,
                                    rejected_tasks=rejected_tasks,
+                                   industry_counts=industry_counts,
+                                   tester_counts=tester_counts,
                                    year=year,
                                    month=month,
                                    quarter=quarter,

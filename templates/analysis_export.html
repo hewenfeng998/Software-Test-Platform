@@ -393,6 +393,44 @@
         
         <div class="charts-section">
             <div class="chart-card" style="grid-column: span 2;">
+                <h3>🏢 行业分布对比</h3>
+                {% if total_tasks > 0 and industry_counts %}
+                    {% for industry, count in industry_counts.items() %}
+                        {% set percent = (count / total_tasks * 100)|round(1) %}
+                        <div class="bar-container">
+                            <div class="bar-label">{{ industry }}: {{ count }} 个项目 ({{ percent }}%)</div>
+                            <div class="bar-track">
+                                <div class="bar-fill" style="width: {{ percent }}%; background: linear-gradient(90deg, #667eea, #764ba2);">{{ count }}</div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-data">暂无行业数据</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="charts-section">
+            <div class="chart-card" style="grid-column: span 2;">
+                <h3>👤 测试人员数据分析</h3>
+                {% if total_tasks > 0 and tester_counts %}
+                    {% for tester, count in tester_counts.items() %}
+                        {% set percent = (count / total_tasks * 100)|round(1) %}
+                        <div class="bar-container">
+                            <div class="bar-label">{{ tester }}: {{ count }} 个任务 ({{ percent }}%)</div>
+                            <div class="bar-track">
+                                <div class="bar-fill" style="width: {{ percent }}%; background: linear-gradient(90deg, #11998e, #38ef7d);">{{ count }}</div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-data">暂无测试人员数据</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="charts-section">
+            <div class="chart-card" style="grid-column: span 2;">
                 <h3>⚠️ 卡点问题项目</h3>
                 {% if blocker_tasks %}
                     <div class="blocker-list">
