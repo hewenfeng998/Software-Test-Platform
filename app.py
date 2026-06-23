@@ -711,6 +711,7 @@ def analysis():
     industry_counts = defaultdict(int)
     test_result_counts = defaultdict(int)
     tester_counts = defaultdict(int)
+    test_round_pass_rate = {}
     total_tasks = len(tasks)
     avg_progress = 0
     blocker_count = 0
@@ -726,6 +727,18 @@ def analysis():
         avg_progress += task.progress
         if task.blockers:
             blocker_count += 1
+
+    for round_name in TEST_ROUND_OPTIONS:
+        round_tasks = [t for t in tasks if t.test_round == round_name]
+        round_total = len(round_tasks)
+        round_pass = sum(1 for t in round_tasks if t.test_result == 'PASS')
+        if round_total > 0:
+            test_round_pass_rate[round_name] = {'total': round_total, 'pass': round_pass, 'rate': round((round_pass / round_total) * 100, 1)}
+        else:
+            test_round_pass_rate[round_name] = {'total': round_total, 'pass': round_pass, 'rate': 0}
+
+    blocker_tasks = [t for t in tasks if t.blockers and t.blockers.strip()]
+    rejected_tasks = [t for t in tasks if t.status == '送测打回']
 
     if total_tasks > 0:
         avg_progress = round(avg_progress / total_tasks, 1)
@@ -761,6 +774,9 @@ def analysis():
                            industry_counts=industry_counts,
                            test_result_counts=test_result_counts,
                            tester_counts=tester_counts,
+                           test_round_pass_rate=test_round_pass_rate,
+                           blocker_tasks=blocker_tasks,
+                           rejected_tasks=rejected_tasks,
                            total_tasks=total_tasks,
                            avg_progress=avg_progress,
                            blocker_count=blocker_count,

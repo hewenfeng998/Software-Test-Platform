@@ -146,6 +146,40 @@
         .bar-fill.high { background-color: #f44336; }
         .bar-fill.medium { background-color: #ff9800; }
         .bar-fill.low { background-color: #9e9e9e; }
+        .blocker-list, .rejected-list {
+            max-height: none;
+            overflow-y: visible;
+        }
+        .blocker-item, .rejected-item {
+            background-color: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 4px;
+        }
+        .rejected-item {
+            background-color: #ffebee;
+            border-left-color: #f44336;
+        }
+        .blocker-title, .rejected-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 15px;
+        }
+        .blocker-meta, .rejected-meta {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .blocker-desc, .rejected-desc {
+            font-size: 14px;
+            color: #8B4513;
+            line-height: 1.5;
+        }
+        .rejected-desc {
+            color: #c62828;
+        }
         .table-section {
             background-color: white;
             padding: 25px;
@@ -367,6 +401,91 @@
                     </div>
                 {% else %}
                     <div class="no-data">本月暂无任务数据</div>
+                {% endif %}
+            </div>
+
+            <div class="chart-card">
+                <h3>📊 测试轮次通过率</h3>
+                {% if total_tasks > 0 %}
+                    {% for round_name in ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10'] %}
+                        {% set round_data = test_round_pass_rate.get(round_name, {'total': 0, 'pass': 0, 'rate': 0}) %}
+                        {% if round_data.total > 0 %}
+                            {% if round_data.rate > 90 %}
+                                {% set bar_color = '#4CAF50' %}
+                            {% elif round_data.rate >= 85 %}
+                                {% set bar_color = '#FFE0E0' %}
+                            {% elif round_data.rate >= 80 %}
+                                {% set bar_color = '#FFC0C0' %}
+                            {% elif round_data.rate >= 75 %}
+                                {% set bar_color = '#FFA0A0' %}
+                            {% elif round_data.rate >= 70 %}
+                                {% set bar_color = '#FF8080' %}
+                            {% elif round_data.rate >= 65 %}
+                                {% set bar_color = '#FF6060' %}
+                            {% elif round_data.rate >= 60 %}
+                                {% set bar_color = '#FF4040' %}
+                            {% elif round_data.rate >= 50 %}
+                                {% set bar_color = '#E63946' %}
+                            {% elif round_data.rate >= 40 %}
+                                {% set bar_color = '#D62828' %}
+                            {% elif round_data.rate >= 30 %}
+                                {% set bar_color = '#C1121F' %}
+                            {% elif round_data.rate >= 20 %}
+                                {% set bar_color = '#A4161A' %}
+                            {% elif round_data.rate >= 10 %}
+                                {% set bar_color = '#8B0000' %}
+                            {% else %}
+                                {% set bar_color = '#6B0000' %}
+                            {% endif %}
+                            <div class="bar-container">
+                                <div class="bar-label">{{ round_name }}: {{ round_data.pass }}/{{ round_data.total }} ({{ round_data.rate }}%)</div>
+                                <div class="bar-track">
+                                    <div class="bar-fill" style="width: {{ round_data.rate }}%; background-color: {{ bar_color }};">{{ round_data.rate }}%</div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                    {% if not test_round_pass_rate %}
+                        <div class="no-data">暂无测试轮次数据</div>
+                    {% endif %}
+                {% else %}
+                    <div class="no-data">本月暂无任务数据</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="charts-section">
+            <div class="chart-card" style="grid-column: span 2;">
+                <h3>⚠️ 卡点问题项目</h3>
+                {% if blocker_tasks %}
+                    <div class="blocker-list">
+                        {% for task in blocker_tasks %}
+                            <div class="blocker-item">
+                                <div class="blocker-title">{{ task.title }}</div>
+                                <div class="blocker-meta">测试人员: {{ task.tester or '未分配' }} | 状态: {{ task.status }}</div>
+                                <div class="blocker-desc">卡点问题: {{ task.blockers }}</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="no-data">暂无卡点问题项目</div>
+                {% endif %}
+            </div>
+            
+            <div class="chart-card" style="grid-column: span 2;">
+                <h3>🔴 送测打回项目</h3>
+                {% if rejected_tasks %}
+                    <div class="rejected-list">
+                        {% for task in rejected_tasks %}
+                            <div class="rejected-item">
+                                <div class="rejected-title">{{ task.title }}</div>
+                                <div class="rejected-meta">测试人员: {{ task.tester or '未分配' }} | 行业: {{ task.industry or '未分类' }}</div>
+                                <div class="rejected-desc">打回原因: {{ task.blockers or '未填写' }}</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="no-data">暂无送测打回项目</div>
                 {% endif %}
             </div>
         </div>
