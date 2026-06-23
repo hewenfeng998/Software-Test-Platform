@@ -314,7 +314,7 @@ def send_feishu_report_with_html(period_name, total_tasks, status_counts, avg_pr
         """.strip()
         
         if report_url:
-            content += f"\n\n� [查看完整报告]({report_url})"
+            content += "\n\n【查看完整报告】: " + report_url
         
         payload = {
             "msg_type": "text",
