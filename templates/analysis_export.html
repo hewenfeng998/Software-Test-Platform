@@ -61,6 +61,7 @@
         .stat-card.rejected { background-color: #ffebee; }
         .stat-card.avg-progress { background-color: #f3e5f5; }
         .stat-card.blockers { background-color: #ffebee; }
+        .stat-card.pass-projects { background-color: #e8f5e9; }
         .charts-section {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -106,6 +107,33 @@
         .bar-fill.completed { background-color: #4CAF50; }
         .bar-fill.interrupted { background-color: #9c27b0; }
         .bar-fill.rejected { background-color: #f44336; }
+        .pass-list {
+            max-height: none;
+            overflow-y: visible;
+        }
+        .pass-item {
+            background-color: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 4px;
+        }
+        .pass-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 15px;
+        }
+        .pass-meta {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .pass-desc {
+            font-size: 14px;
+            color: #2e7d32;
+            line-height: 1.5;
+        }
         .table-section {
             background-color: white;
             padding: 25px;
@@ -250,7 +278,11 @@
             </div>
             <div class="stat-card blockers">
                 <div class="number">{{ blocker_count }}</div>
-                <div class="label">有卡点问题</div>
+                <div class="label">测试NG</div>
+            </div>
+            <div class="stat-card pass-projects">
+                <div class="number">{{ pass_count }}</div>
+                <div class="label">定版项目</div>
             </div>
         </div>
         
@@ -375,7 +407,7 @@
                                 {% set bar_color = '#6B0000' %}
                             {% endif %}
                             <div class="bar-container">
-                                <div class="bar-label">{{ round_name }}: {{ round_data.pass }}/{{ round_data.total }} ({{ round_data.rate }}%)</div>
+                                <div class="bar-label">{{ round_name }}: {{ round_data.pass }}/{{ total_pass }} ({{ round_data.rate }}%)</div>
                                 <div class="bar-track">
                                     <div class="bar-fill" style="width: {{ round_data.rate }}%; background-color: {{ bar_color }};">{{ round_data.rate }}%</div>
                                 </div>
@@ -431,19 +463,36 @@
         
         <div class="charts-section">
             <div class="chart-card" style="grid-column: span 2;">
-                <h3>⚠️ 卡点问题项目</h3>
+                <h3>⚠️ 测试NG项目</h3>
                 {% if blocker_tasks %}
                     <div class="blocker-list">
                         {% for task in blocker_tasks %}
                             <div class="blocker-item">
                                 <div class="blocker-title">{{ task.title }}</div>
                                 <div class="blocker-meta">测试人员: {{ task.tester or '未分配' }} | 状态: {{ task.status }}</div>
-                                <div class="blocker-desc">卡点问题: {{ task.blockers }}</div>
+                                <div class="blocker-desc">问题描述: {{ task.blockers }}</div>
                             </div>
                         {% endfor %}
                     </div>
                 {% else %}
-                    <div class="no-data">暂无卡点问题项目</div>
+                    <div class="no-data">暂无测试NG项目</div>
+                {% endif %}
+            </div>
+            
+            <div class="chart-card" style="grid-column: span 2;">
+                <h3>✅ 定版项目</h3>
+                {% if pass_tasks %}
+                    <div class="pass-list">
+                        {% for task in pass_tasks %}
+                            <div class="pass-item">
+                                <div class="pass-title">{{ task.title }}</div>
+                                <div class="pass-meta">测试人员: {{ task.tester or '未分配' }} | 行业: {{ task.industry or '未分类' }} | 测试轮次: {{ task.test_round or '未填写' }}</div>
+                                <div class="pass-desc">测试结果: PASS</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="no-data">暂无定版项目</div>
                 {% endif %}
             </div>
             

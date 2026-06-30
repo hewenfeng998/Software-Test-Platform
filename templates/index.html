@@ -45,9 +45,16 @@
         document.getElementById('detailModal').style.display = 'none';
     }
 
-    function toggleMultiSelect() {
+    function toggleMultiSelect(event) {
+        event.stopPropagation();
         var container = document.querySelectorAll('.multi-select-container')[0];
-        container.classList.toggle('open');
+        var isOpen = container.classList.contains('open');
+        document.querySelectorAll('.multi-select-container').forEach(function(c) {
+            c.classList.remove('open');
+        });
+        if (!isOpen) {
+            container.classList.add('open');
+        }
     }
 
     function toggleSelectAll() {
@@ -77,16 +84,29 @@
 
     document.addEventListener('click', function(e) {
         var containers = document.querySelectorAll('.multi-select-container');
+        var isInsideMultiSelect = false;
         containers.forEach(function(container) {
-            if (!container.contains(e.target)) {
-                container.classList.remove('open');
+            if (container.contains(e.target)) {
+                isInsideMultiSelect = true;
             }
         });
+        if (!isInsideMultiSelect) {
+            containers.forEach(function(container) {
+                container.classList.remove('open');
+            });
+        }
     });
 
-    function toggleStatusMultiSelect() {
-        var container = document.querySelectorAll('.multi-select-container')[1];
-        container.classList.toggle('open');
+    function toggleStatusMultiSelect(event) {
+        event.stopPropagation();
+        var container = document.querySelectorAll('.multi-select-container')[2];
+        var isOpen = container.classList.contains('open');
+        document.querySelectorAll('.multi-select-container').forEach(function(c) {
+            c.classList.remove('open');
+        });
+        if (!isOpen) {
+            container.classList.add('open');
+        }
     }
 
     function toggleSelectAllStatus() {
@@ -112,6 +132,75 @@
             selectedSpan.textContent = selectedCount + '项已选';
             document.getElementById('select-all-status').checked = false;
         }
+    }
+
+    function toggleIndustryMultiSelect(event) {
+        event.stopPropagation();
+        var container = document.querySelectorAll('.multi-select-container')[1];
+        var isOpen = container.classList.contains('open');
+        document.querySelectorAll('.multi-select-container').forEach(function(c) {
+            c.classList.remove('open');
+        });
+        if (!isOpen) {
+            container.classList.add('open');
+        }
+    }
+
+    function toggleSelectAllIndustry() {
+        var selectAll = document.getElementById('select-all-industry');
+        var checkboxes = document.querySelectorAll('input[name="industry_filter"]');
+        checkboxes.forEach(function(cb) {
+            cb.checked = selectAll.checked;
+        });
+        updateSelectedIndustryCount();
+    }
+
+    function updateSelectedIndustryCount() {
+        var checkboxes = document.querySelectorAll('input[name="industry_filter"]:checked');
+        var selectedCount = checkboxes.length;
+        var selectedSpan = document.getElementById('selected-industry');
+        
+        if (selectedCount === 0) {
+            selectedSpan.textContent = '请选择';
+        } else if (selectedCount === document.querySelectorAll('input[name="industry_filter"]').length) {
+            selectedSpan.textContent = '全部';
+            document.getElementById('select-all-industry').checked = true;
+        } else {
+            selectedSpan.textContent = selectedCount + '项已选';
+            document.getElementById('select-all-industry').checked = false;
+        }
+    }
+
+    function showDeleteAllModal() {
+        document.getElementById('deleteAllModal').style.display = 'block';
+        document.getElementById('deletePassword').value = '';
+        document.getElementById('deleteError').style.display = 'none';
+    }
+
+    function closeDeleteAllModal() {
+        document.getElementById('deleteAllModal').style.display = 'none';
+    }
+
+    function deleteAllTasks() {
+        var password = document.getElementById('deletePassword').value;
+        if (!password) {
+            document.getElementById('deleteError').textContent = '请输入密码';
+            document.getElementById('deleteError').style.display = 'block';
+            return;
+        }
+        
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/delete_all_tasks', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                location.reload();
+            } else {
+                document.getElementById('deleteError').textContent = '密码错误或权限不足';
+                document.getElementById('deleteError').style.display = 'block';
+            }
+        };
+        xhr.send(JSON.stringify({ password: password }));
     }
     </script>
     <style>
@@ -402,6 +491,19 @@
             background-color: #f44336;
             color: white;
         }
+        .delete-all-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #d32f2f;
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .delete-all-btn:hover {
+            background-color: #b71c1c;
+        }
         .detail-btn:hover {
             background-color: #5d4037;
         }
@@ -570,6 +672,9 @@
             <a href="{{ url_for('gantt') }}" class="gantt-btn">📈 甘特图</a>
             <a href="{{ url_for('export_tasks') }}" class="export-btn">📥 导出数据</a>
             <button class="import-btn" onclick="document.getElementById('importForm').style.display = 'block'">📤 导入数据</button>
+            {% if is_admin %}
+                <a href="#" class="delete-all-btn" onclick="showDeleteAllModal(); return false;">🗑️ 删除全部</a>
+            {% endif %}
         </div>
         
         <div id="importForm" style="display: none; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px;">
@@ -588,7 +693,7 @@
             <input type="text" name="search" placeholder="输入标题关键词..." value="{{ search_keyword or '' }}" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
             <label>测试人员:</label>
             <div class="multi-select-container">
-                <div class="multi-select-trigger" onclick="toggleMultiSelect()">
+                <div class="multi-select-trigger" onclick="toggleMultiSelect(event)">
                     <span id="selected-testers">{% if tester_filter_list|length > 0 and tester_filter_list != ['all'] %}{{ tester_filter_list|length }}人已选{% else %}请选择{% endif %}</span>
                     <span class="multi-select-arrow">▼</span>
                 </div>
@@ -605,9 +710,28 @@
                     {% endfor %}
                 </div>
             </div>
+            <label>行业筛选:</label>
+            <div class="multi-select-container">
+                <div class="multi-select-trigger" onclick="toggleIndustryMultiSelect(event)">
+                    <span id="selected-industry">{% if industry_filter_list|length > 0 and industry_filter_list != ['all'] %}{{ industry_filter_list|length }}项已选{% else %}全部{% endif %}</span>
+                    <span class="multi-select-arrow">▼</span>
+                </div>
+                <div class="multi-select-dropdown" id="industry-multi-select-dropdown">
+                    <label class="multi-select-option">
+                        <input type="checkbox" id="select-all-industry" {% if not industry_filter_list or industry_filter_list == ['all'] %}checked{% endif %} onchange="toggleSelectAllIndustry()">
+                        <span>全部</span>
+                    </label>
+                    {% for industry in industry_list %}
+                    <label class="multi-select-option">
+                        <input type="checkbox" name="industry_filter" value="{{ industry }}" {% if industry in industry_filter_list %}checked{% endif %} onchange="updateSelectedIndustryCount()">
+                        <span>{{ industry }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
             <label>状态筛选:</label>
             <div class="multi-select-container">
-                <div class="multi-select-trigger" onclick="toggleStatusMultiSelect()">
+                <div class="multi-select-trigger" onclick="toggleStatusMultiSelect(event)">
                     <span id="selected-status">{% if status_filter_list|length > 0 and status_filter_list != ['all'] %}{{ status_filter_list|length }}项已选{% else %}全部{% endif %}</span>
                     <span class="multi-select-arrow">▼</span>
                 </div>
@@ -910,7 +1034,25 @@
             if (event.target === modal) {
                 closeModal();
             }
+            var deleteModal = document.getElementById('deleteAllModal');
+            if (event.target === deleteModal) {
+                closeDeleteAllModal();
+            }
         }
     </script>
+    
+    <div id="deleteAllModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+        <div style="background-color: #fefefe; margin: 15% auto; padding: 30px; border: 1px solid #888; width: 400px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+            <h3 style="color: #d32f2f; margin-bottom: 20px; text-align: center;">⚠️ 危险操作</h3>
+            <p style="margin-bottom: 20px; color: #333; line-height: 1.6;">确定要删除所有项目吗？此操作将清空数据库中的所有任务数据，<strong>不可恢复</strong>！</p>
+            <p style="margin-bottom: 15px; color: #666;">请输入管理员密码以确认：</p>
+            <input type="password" id="deletePassword" placeholder="输入密码" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; margin-bottom: 15px;">
+            <div id="deleteError" style="display: none; color: #d32f2f; margin-bottom: 15px; text-align: center;">密码错误或权限不足</div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="closeDeleteAllModal()" style="padding: 10px 20px; background-color: #ccc; color: #333; border: none; border-radius: 4px; cursor: pointer;">取消</button>
+                <button onclick="deleteAllTasks()" style="padding: 10px 20px; background-color: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer;">确认删除</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

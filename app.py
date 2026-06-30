@@ -183,7 +183,7 @@ def send_feishu_notification(task):
         print(f"发送飞书消息失败: {str(e)}")
         return False
 
-def send_feishu_report(period_name, total_tasks, status_counts, avg_progress, blocker_count, test_round_pass_rate):
+def send_feishu_report(period_name, total_tasks, status_counts, avg_progress, blocker_count, pass_count, test_round_pass_rate):
     """发送项目分析报告到飞书群"""
     try:
         pass_rates = []
@@ -205,7 +205,8 @@ def send_feishu_report(period_name, total_tasks, status_counts, avg_progress, bl
 - 异常中断: {status_counts.get('异常中断', 0)}
 - 送测打回: {status_counts.get('送测打回', 0)}
 - 平均进度: {avg_progress}%
-- 卡点问题: {blocker_count}
+- 测试NG: {blocker_count}
+- 定版项目: {pass_count}
 
 **✅ 测试轮次通过率**
 {pass_rate_text}
@@ -226,7 +227,7 @@ def send_feishu_report(period_name, total_tasks, status_counts, avg_progress, bl
         print(f"发送飞书报告失败: {str(e)}")
         return False
 
-def send_feishu_report_with_html(period_name, total_tasks, status_counts, avg_progress, blocker_count, test_round_pass_rate, html_content):
+def send_feishu_report_with_html(period_name, total_tasks, status_counts, avg_progress, blocker_count, pass_count, test_round_pass_rate, html_content):
     """发送项目分析报告到飞书群（包含HTML附件链接）"""
     import sys
     print(f"=== 开始发送报告 ===", flush=True)
@@ -309,7 +310,8 @@ def send_feishu_report_with_html(period_name, total_tasks, status_counts, avg_pr
 - 异常中断: {status_counts.get('异常中断', 0)}
 - 送测打回: {status_counts.get('送测打回', 0)}
 - 平均进度: {avg_progress}%
-- 卡点问题: {blocker_count}
+- 测试NG: {blocker_count}
+- 定版项目: {pass_count}
 
 **✅ 测试轮次通过率**
 {pass_rate_text}
@@ -536,6 +538,11 @@ def index():
         if 'all' not in tester_filters:
             tasks = tasks.filter(Task.tester.in_(tester_filters))
 
+    industry_filters = request.args.getlist('industry_filter')
+    if industry_filters and industry_filters != ['all'] and industry_filters != []:
+        if 'all' not in industry_filters:
+            tasks = tasks.filter(Task.industry.in_(industry_filters))
+
     if start_filter:
         try:
             start_date = datetime.strptime(start_filter, '%Y-%m-%d').date()
@@ -559,6 +566,9 @@ def index():
     
     testers = Task.query.with_entities(Task.tester).distinct().filter(Task.tester.isnot(None)).all()
     tester_list = [t[0] for t in testers]
+    
+    industries = Task.query.with_entities(Task.industry).distinct().filter(Task.industry.isnot(None)).all()
+    industry_list = [i[0] for i in industries]
 
     return render_template('index.html', tasks=tasks.items,
                            pagination=tasks,
@@ -568,8 +578,10 @@ def index():
                            search_keyword=search_keyword,
                            tester_filter=tester_filter,
                            tester_filter_list=tester_filters,
+                           industry_filter_list=industry_filters,
                            is_admin=user.is_admin(),
                            tester_list=tester_list,
+                           industry_list=industry_list,
                            can_edit=user.can_edit(),
                            can_delete=user.can_delete(),
                            current_page=page)
@@ -666,6 +678,25 @@ def delete_task(id):
     db.session.commit()
     flash('任务删除成功！')
     return redirect(url_for('index'))
+
+@app.route('/delete_all_tasks', methods=['POST'])
+@login_required
+def delete_all_tasks():
+    user = User.query.get(session['user_id'])
+    
+    if not user.is_admin():
+        return jsonify({'success': False, 'message': '权限不足'}), 403
+    
+    data = request.get_json()
+    password = data.get('password', '')
+    
+    if password != '88889999':
+        return jsonify({'success': False, 'message': '密码错误'}), 401
+    
+    Task.query.delete()
+    db.session.commit()
+    flash('所有任务已删除！')
+    return jsonify({'success': True}), 200
 
 @app.route('/automation')
 @login_required
@@ -919,6 +950,8 @@ def analysis():
 
     blocker_tasks = [t for t in tasks if t.blockers and t.blockers.strip()]
     rejected_tasks = [t for t in tasks if t.status == '送测打回']
+    pass_tasks = [t for t in tasks if t.test_result == 'PASS']
+    pass_count = len(pass_tasks)
 
     if total_tasks > 0:
         avg_progress = round(avg_progress / total_tasks, 1)
@@ -957,6 +990,9 @@ def analysis():
                            test_round_pass_rate=test_round_pass_rate,
                            blocker_tasks=blocker_tasks,
                            rejected_tasks=rejected_tasks,
+                           pass_tasks=pass_tasks,
+                           pass_count=pass_count,
+                           total_pass=total_pass,
                            total_tasks=total_tasks,
                            avg_progress=avg_progress,
                            blocker_count=blocker_count,
@@ -1130,6 +1166,7 @@ def export_analysis():
     test_round_pass_rate = {}
     blocker_tasks = []
     rejected_tasks = []
+    pass_tasks = []
     industry_counts = defaultdict(int)
     tester_counts = defaultdict(int)
 
@@ -1156,6 +1193,10 @@ def export_analysis():
         elif task.status == '送测打回':
             rejected_count += 1
             rejected_tasks.append(task)
+        if task.test_result == 'PASS':
+            pass_tasks.append(task)
+    
+    pass_count = len(pass_tasks)
 
     round_pass_counts = {}
     for round_name in TEST_ROUND_OPTIONS:
@@ -1215,6 +1256,9 @@ def export_analysis():
                                    test_round_pass_rate=test_round_pass_rate,
                                    blocker_tasks=blocker_tasks,
                                    rejected_tasks=rejected_tasks,
+                                   pass_tasks=pass_tasks,
+                                   pass_count=pass_count,
+                                   total_pass=total_pass,
                                    industry_counts=industry_counts,
                                    tester_counts=tester_counts,
                                    total_tasks=total_tasks,
@@ -1435,6 +1479,8 @@ def send_report_to_feishu():
 
     blocker_tasks = [t for t in tasks if t.blockers and t.blockers.strip()]
     rejected_tasks = [t for t in tasks if t.status == '送测打回']
+    pass_tasks = [t for t in tasks if t.test_result == 'PASS']
+    pass_count = len(pass_tasks)
 
     html_content = render_template('analysis_export.html',
                                    period_name=period_name,
@@ -1448,6 +1494,7 @@ def send_report_to_feishu():
                                    pass_count=sum(1 for t in tasks if t.test_result == 'PASS'),
                                    fail_count=sum(1 for t in tasks if t.test_result == 'FAIL'),
                                    na_count=sum(1 for t in tasks if t.test_result == 'N/A'),
+                                   total_pass=total_pass,
                                    test_round_pass_rate=test_round_pass_rate,
                                    blocker_tasks=blocker_tasks,
                                    rejected_tasks=rejected_tasks,
@@ -1458,7 +1505,7 @@ def send_report_to_feishu():
                                    quarter=quarter,
                                    period_type=period_type)
 
-    success = send_feishu_report_with_html(period_name, total_tasks, status_counts, avg_progress, blocker_count, test_round_pass_rate, html_content)
+    success = send_feishu_report_with_html(period_name, total_tasks, status_counts, avg_progress, blocker_count, pass_count, test_round_pass_rate, html_content)
     
     if success:
         return jsonify({'success': True, 'message': '报告已发送到飞书群'})
