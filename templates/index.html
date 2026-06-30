@@ -762,11 +762,11 @@
                     </label>
                 </div>
             </div>
-            <label>开始时间筛选:</label>
-            <input type="date" name="start_filter" value="{{ start_filter or '' }}">
-            <label>结束时间筛选:</label>
-            <input type="date" name="end_filter" value="{{ end_filter or '' }}">
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <label>开始时间筛选:</label>
+                <input type="date" name="start_filter" value="{{ start_filter or '' }}">
+                <label>结束时间筛选:</label>
+                <input type="date" name="end_filter" value="{{ end_filter or '' }}">
                 <button type="submit">筛选</button>
                 <button type="button" class="reset-btn" onclick="window.location.href='{{ url_for('index') }}'">重置</button>
             </div>
