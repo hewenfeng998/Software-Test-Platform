@@ -834,9 +834,9 @@
                         </td>
                         <td class="actions">
                             <a href="#" class="detail-btn" onclick="showDetail({{ task.id }})">详情</a>
-                            <a href="{{ url_for('edit_task', id=task.id) }}" class="edit-btn">编辑</a>
+                            <a href="{{ url_for('edit_task', id=task.id, page=current_page, search=search_keyword, start_filter=start_filter, end_filter=end_filter) }}{% for tester in tester_filter_list if tester and tester != 'all' %}&tester_filter={{ tester|urlencode }}{% endfor %}{% for status in status_filter_list if status and status != 'all' %}&status_filter={{ status|urlencode }}{% endfor %}{% for industry in industry_filter_list if industry and industry != 'all' %}&industry_filter={{ industry|urlencode }}{% endfor %}" class="edit-btn">编辑</a>
                             {% if can_delete %}
-                            <a href="{{ url_for('delete_task', id=task.id) }}" class="delete-btn" onclick="return confirm('确定删除此任务吗？')">删除</a>
+                            <a href="{{ url_for('delete_task', id=task.id, page=current_page, search=search_keyword, start_filter=start_filter, end_filter=end_filter) }}{% for tester in tester_filter_list if tester and tester != 'all' %}&tester_filter={{ tester|urlencode }}{% endfor %}{% for status in status_filter_list if status and status != 'all' %}&status_filter={{ status|urlencode }}{% endfor %}{% for industry in industry_filter_list if industry and industry != 'all' %}&industry_filter={{ industry|urlencode }}{% endfor %}" class="delete-btn" onclick="return confirm('确定删除此任务吗？')">删除</a>
                             {% else %}
                             <a href="#" class="delete-btn" onclick="alert('您没有删除权限！')">删除</a>
                             {% endif %}
@@ -854,7 +854,7 @@
         <div style="text-align: center; margin-top: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
             <div style="display: inline-flex; align-items: center; gap: 10px;">
                 {% if pagination.has_prev %}
-                <a href="?page={{ pagination.prev_num }}{% if search_keyword %}&search={{ search_keyword }}{% endif %}{% for tester in tester_filter_list if tester and tester != 'all' %}&tester_filter={{ tester }}{% endfor %}{% for status in status_filter_list if status and status != 'all' %}&status_filter={{ status }}{% endfor %}{% if start_filter %}&start_filter={{ start_filter }}{% endif %}{% if end_filter %}&end_filter={{ end_filter }}{% endif %}" style="padding: 8px 16px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">上一页</a>
+                <a href="?page={{ pagination.prev_num }}{% if search_keyword %}&search={{ search_keyword|urlencode }}{% endif %}{% for tester in tester_filter_list if tester and tester != 'all' %}&tester_filter={{ tester|urlencode }}{% endfor %}{% for industry in industry_filter_list if industry and industry != 'all' %}&industry_filter={{ industry|urlencode }}{% endfor %}{% for status in status_filter_list if status and status != 'all' %}&status_filter={{ status|urlencode }}{% endfor %}{% if start_filter %}&start_filter={{ start_filter }}{% endif %}{% if end_filter %}&end_filter={{ end_filter }}{% endif %}" style="padding: 8px 16px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">上一页</a>
                 {% else %}
                 <span style="padding: 8px 16px; background: #eee; color: #999; border-radius: 4px; font-size: 14px;">上一页</span>
                 {% endif %}
@@ -862,7 +862,7 @@
                 <span style="color: #666; font-size: 14px;">第 {{ current_page }} / {{ pagination.pages }} 页</span>
                 
                 {% if pagination.has_next %}
-                <a href="?page={{ pagination.next_num }}{% if search_keyword %}&search={{ search_keyword }}{% endif %}{% for tester in tester_filter_list if tester and tester != 'all' %}&tester_filter={{ tester }}{% endfor %}{% for status in status_filter_list if status and status != 'all' %}&status_filter={{ status }}{% endfor %}{% if start_filter %}&start_filter={{ start_filter }}{% endif %}{% if end_filter %}&end_filter={{ end_filter }}{% endif %}" style="padding: 8px 16px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">下一页</a>
+                <a href="?page={{ pagination.next_num }}{% if search_keyword %}&search={{ search_keyword|urlencode }}{% endif %}{% for tester in tester_filter_list if tester and tester != 'all' %}&tester_filter={{ tester|urlencode }}{% endfor %}{% for industry in industry_filter_list if industry and industry != 'all' %}&industry_filter={{ industry|urlencode }}{% endfor %}{% for status in status_filter_list if status and status != 'all' %}&status_filter={{ status|urlencode }}{% endfor %}{% if start_filter %}&start_filter={{ start_filter }}{% endif %}{% if end_filter %}&end_filter={{ end_filter }}{% endif %}" style="padding: 8px 16px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">下一页</a>
                 {% else %}
                 <span style="padding: 8px 16px; background: #eee; color: #999; border-radius: 4px; font-size: 14px;">下一页</span>
                 {% endif %}

@@ -96,6 +96,19 @@
         <h1>编辑任务</h1>
         
         <form method="POST">
+            <input type="hidden" name="page" value="{{ request.args.get('page', 1) }}">
+            <input type="hidden" name="search" value="{{ request.args.get('search', '') }}">
+            <input type="hidden" name="start_filter" value="{{ request.args.get('start_filter', '') }}">
+            <input type="hidden" name="end_filter" value="{{ request.args.get('end_filter', '') }}">
+            {% for tester in request.args.getlist('tester_filter') %}
+            <input type="hidden" name="tester_filter" value="{{ tester }}">
+            {% endfor %}
+            {% for status in request.args.getlist('status_filter') %}
+            <input type="hidden" name="status_filter" value="{{ status }}">
+            {% endfor %}
+            {% for industry in request.args.getlist('industry_filter') %}
+            <input type="hidden" name="industry_filter" value="{{ industry }}">
+            {% endfor %}
             <div>
                 <label for="title">任务标题</label>
                 <input type="text" id="title" name="title" value="{{ task.title }}" required>
@@ -205,7 +218,7 @@
             
             <div class="btn-group">
                 <button type="submit" class="submit-btn">保存修改</button>
-                <a href="{{ url_for('index') }}" class="cancel-btn">取消</a>
+                <a href="{{ url_for('index', page=request.args.get('page', 1), search=request.args.get('search', ''), start_filter=request.args.get('start_filter', ''), end_filter=request.args.get('end_filter', '')) }}{% for tester in request.args.getlist('tester_filter') %}&tester_filter={{ tester|urlencode }}{% endfor %}{% for status in request.args.getlist('status_filter') %}&status_filter={{ status|urlencode }}{% endfor %}{% for industry in request.args.getlist('industry_filter') %}&industry_filter={{ industry|urlencode }}{% endfor %}" class="cancel-btn">取消</a>
             </div>
         </form>
     </div>

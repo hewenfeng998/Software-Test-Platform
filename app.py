@@ -5,7 +5,7 @@ from collections import defaultdict
 from functools import wraps
 import csv
 from io import StringIO
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 import requests
 import json
 import os
@@ -658,7 +658,35 @@ def edit_task(id):
         task.blockers = request.form['blockers']
         db.session.commit()
         flash('任务更新成功！')
-        return redirect(url_for('index'))
+        
+        page = request.form.get('page', 1, type=int)
+        search = request.form.get('search', '')
+        start_filter = request.form.get('start_filter', '')
+        end_filter = request.form.get('end_filter', '')
+        tester_filters = request.form.getlist('tester_filter')
+        status_filters = request.form.getlist('status_filter')
+        industry_filters = request.form.getlist('industry_filter')
+        
+        query_parts = [f'page={page}']
+        if search:
+            query_parts.append(f'search={quote(search)}')
+        if start_filter:
+            query_parts.append(f'start_filter={quote(start_filter)}')
+        if end_filter:
+            query_parts.append(f'end_filter={quote(end_filter)}')
+        for tester in tester_filters:
+            if tester and tester != 'all':
+                query_parts.append(f'tester_filter={quote(tester)}')
+        for status in status_filters:
+            if status and status != 'all':
+                query_parts.append(f'status_filter={quote(status)}')
+        for industry in industry_filters:
+            if industry and industry != 'all':
+                query_parts.append(f'industry_filter={quote(industry)}')
+        
+        query_string = '&'.join(query_parts)
+        redirect_url = url_for('index') + '?' + query_string
+        return redirect(redirect_url)
 
     return render_template('edit.html', task=task, industries=INDUSTRY_OPTIONS,
                            test_result_options=TEST_RESULT_OPTIONS,
@@ -677,7 +705,35 @@ def delete_task(id):
     db.session.delete(task)
     db.session.commit()
     flash('任务删除成功！')
-    return redirect(url_for('index'))
+    
+    page = request.args.get('page', 1, type=int)
+    search = request.args.get('search', '')
+    start_filter = request.args.get('start_filter', '')
+    end_filter = request.args.get('end_filter', '')
+    tester_filters = request.args.getlist('tester_filter')
+    status_filters = request.args.getlist('status_filter')
+    industry_filters = request.args.getlist('industry_filter')
+    
+    query_parts = [f'page={page}']
+    if search:
+        query_parts.append(f'search={quote(search)}')
+    if start_filter:
+        query_parts.append(f'start_filter={quote(start_filter)}')
+    if end_filter:
+        query_parts.append(f'end_filter={quote(end_filter)}')
+    for tester in tester_filters:
+        if tester and tester != 'all':
+            query_parts.append(f'tester_filter={quote(tester)}')
+    for status in status_filters:
+        if status and status != 'all':
+            query_parts.append(f'status_filter={quote(status)}')
+    for industry in industry_filters:
+        if industry and industry != 'all':
+            query_parts.append(f'industry_filter={quote(industry)}')
+    
+    query_string = '&'.join(query_parts)
+    redirect_url = url_for('index') + '?' + query_string
+    return redirect(redirect_url)
 
 @app.route('/delete_all_tasks', methods=['POST'])
 @login_required
