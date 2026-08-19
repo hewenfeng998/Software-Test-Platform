@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from collections import defaultdict
 from functools import wraps
 import csv
@@ -147,11 +147,72 @@ class Machine(db.Model):
     def __repr__(self):
         return f'<Machine {self.name} {self.ip_address}>'
 
+class WorkLog(db.Model):
+    __tablename__ = 'work_log'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    username = db.Column(db.String(50), nullable=False)
+    work_date = db.Column(db.Date, nullable=False)
+    start_time = db.Column(db.Time, nullable=True)
+    end_time = db.Column(db.Time, nullable=True)
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=True)
+    category = db.Column(db.String(50), nullable=False, default='其他')
+    hours = db.Column(db.Float, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='已完成')
+    work_type = db.Column(db.String(20), nullable=False, default='日常')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<WorkLog {self.work_date} {self.title}>'
+
 ROLES = [
     ('admin', '管理员'),
     ('editor', '编辑'),
     ('viewer', '浏览')
 ]
+
+WORKLOG_CATEGORIES = ['测试', '开发', '会议', '学习', '文档', '沟通', '其他']
+WORKLOG_STATUSES = ['已完成', '进行中', '待处理', '已取消']
+WORKLOG_TYPES = ['日常', '项目', '紧急', '临时']
+
+# 类别 → 卡片左侧色条
+WORKLOG_CATEGORY_COLORS = {
+    '测试':  '#4caf50',
+    '开发':  '#2196f3',
+    '会议':  '#ff9800',
+    '学习':  '#9c27b0',
+    '文档':  '#607d8b',
+    '沟通':  '#00bcd4',
+    '其他':  '#9e9e9e',
+}
+
+
+def parse_time_or_none(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value.strip(), '%H:%M').time()
+    except (ValueError, AttributeError):
+        return None
+
+
+def category_color(category):
+    return WORKLOG_CATEGORY_COLORS.get(category or '其他', '#9e9e9e')
+
+
+def get_week_range(ref_date):
+    """以周一为周首，返回 (monday, sunday)"""
+    if ref_date is None:
+        ref_date = date.today()
+    monday = ref_date - timedelta(days=ref_date.weekday())
+    sunday = monday + timedelta(days=6)
+    return monday, sunday
+
+
+def iso_week_number(d):
+    return d.isocalendar().week
 
 def send_feishu_notification(task):
     """发送飞书群机器人通知"""
@@ -367,7 +428,23 @@ with app.app_context():
         with db.engine.connect() as conn:
             conn.execute(db.text('ALTER TABLE task ADD COLUMN di_value FLOAT'))
             conn.commit()
-    
+
+    # work_log 表新增列迁移（start_time / end_time）
+    try:
+        wl_columns = inspector.get_columns('work_log')
+        wl_column_names = [col['name'] for col in wl_columns]
+        if 'start_time' not in wl_column_names:
+            with db.engine.connect() as conn:
+                conn.execute(db.text('ALTER TABLE work_log ADD COLUMN start_time TIME'))
+                conn.commit()
+        if 'end_time' not in wl_column_names:
+            with db.engine.connect() as conn:
+                conn.execute(db.text('ALTER TABLE work_log ADD COLUMN end_time TIME'))
+                conn.commit()
+    except Exception:
+        # work_log 表还不存在（首次启动）—— db.create_all() 会建好
+        pass
+
     if not User.query.filter_by(username='admin').first():
         admin_user = User(username='admin', password='admin123', name='管理员', is_active=True, role='admin')
         db.session.add(admin_user)
@@ -885,6 +962,515 @@ def delete_tool(tool_id):
         flash(f'删除失败: {str(e)}', 'error')
     
     return redirect(url_for('tools'))
+
+
+# ============== 工作记录模块 ==============
+
+@app.route('/worklog')
+@login_required
+def worklog():
+    """日历周视图"""
+    user = User.query.get(session['user_id'])
+
+    # 周日期解析：支持 ?week=YYYY-MM-DD，未提供则取今天
+    week_str = request.args.get('week', '').strip()
+    try:
+        ref_date = datetime.strptime(week_str, '%Y-%m-%d').date() if week_str else date.today()
+    except ValueError:
+        ref_date = date.today()
+
+    monday, sunday = get_week_range(ref_date)
+    week_no = iso_week_number(monday)
+
+    # 拉取该周数据
+    logs_query = WorkLog.query.filter(
+        WorkLog.work_date >= monday,
+        WorkLog.work_date <= sunday
+    )
+    if not user.is_admin():
+        logs_query = logs_query.filter(WorkLog.user_id == user.id)
+    week_logs = logs_query.order_by(WorkLog.start_time.is_(None), WorkLog.start_time.asc(), WorkLog.work_date.asc()).all()
+
+    # 构建日历网格：cell_key[(period_idx, day_idx)] = [log, ...]
+    # period: 0=上午, 1=下午, 2=晚上
+    day_keys = [(monday + timedelta(days=i)) for i in range(7)]
+    cell_map = {(p, di): [] for p in range(3) for di in range(7)}
+    for log in week_logs:
+        if not log.work_date:
+            continue
+        delta = (log.work_date - monday).days
+        if 0 <= delta <= 6:
+            period = _period_of_time(log.start_time)
+            cell_map[(period, delta)].append(log)
+
+    # 构造友好日期/周信息
+    week_dates = [
+        {
+            'date': d,
+            'label': ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][i],
+            'iso': d.strftime('%Y-%m-%d'),
+            'is_today': d == date.today(),
+        }
+        for i, d in enumerate(day_keys)
+    ]
+
+    # 跳转用的目标日期：来自 week_str 或今天
+    today_iso = date.today().isoformat()
+
+    # 上一周/下一周
+    prev_week_iso = (monday - timedelta(days=7)).isoformat()
+    next_week_iso = (monday + timedelta(days=7)).isoformat()
+    cur_week_iso = monday.isoformat()
+
+    week_total_hours = sum(float(l.hours or 0) for l in week_logs)
+
+    return render_template(
+        'worklog.html',
+        view_mode='calendar',
+        week_logs=week_logs,
+        cell_map=cell_map,
+        week_dates=week_dates,
+        week_monday=monday,
+        week_sunday=sunday,
+        week_no=week_no,
+        ref_date=ref_date,
+        prev_week_iso=prev_week_iso,
+        next_week_iso=next_week_iso,
+        cur_week_iso=cur_week_iso,
+        today_iso=today_iso,
+        week_total_hours=round(week_total_hours, 2),
+        categories=WORKLOG_CATEGORIES,
+        statuses=WORKLOG_STATUSES,
+        work_types=WORKLOG_TYPES,
+        is_admin=user.is_admin(),
+        current_user_id=user.id,
+        WORKLOG_CATEGORY_COLORS=WORKLOG_CATEGORY_COLORS
+    )
+
+
+@app.route('/worklog/list')
+@login_required
+def worklog_list():
+    """列表视图（带筛选 + 分页 + 导出）"""
+    user = User.query.get(session['user_id'])
+    logs_query = WorkLog.query
+
+    if not user.is_admin():
+        logs_query = logs_query.filter(WorkLog.user_id == user.id)
+
+    start_filter = request.args.get('start_filter', '').strip()
+    end_filter = request.args.get('end_filter', '').strip()
+    category_filter = request.args.get('category_filter', '').strip()
+    status_filter = request.args.get('status_filter', '').strip()
+    user_filter = request.args.get('user_filter', '').strip()
+    search_keyword = request.args.get('search', '').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+
+    if start_filter:
+        try:
+            start_date = datetime.strptime(start_filter, '%Y-%m-%d').date()
+            logs_query = logs_query.filter(WorkLog.work_date >= start_date)
+        except ValueError:
+            pass
+    if end_filter:
+        try:
+            end_date = datetime.strptime(end_filter, '%Y-%m-%d').date()
+            logs_query = logs_query.filter(WorkLog.work_date <= end_date)
+        except ValueError:
+            pass
+    if category_filter and category_filter != 'all':
+        logs_query = logs_query.filter(WorkLog.category == category_filter)
+    if status_filter and status_filter != 'all':
+        logs_query = logs_query.filter(WorkLog.status == status_filter)
+    if user_filter and user_filter != 'all' and user.is_admin():
+        try:
+            logs_query = logs_query.filter(WorkLog.user_id == int(user_filter))
+        except ValueError:
+            pass
+    if search_keyword:
+        keyword = f'%{search_keyword}%'
+        logs_query = logs_query.filter(db.or_(WorkLog.title.like(keyword), WorkLog.content.like(keyword)))
+
+    pagination = logs_query.order_by(WorkLog.work_date.desc(), WorkLog.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    total_hours = 0.0
+    for item in pagination.items:
+        if item.hours:
+            total_hours += float(item.hours)
+
+    user_list = []
+    if user.is_admin():
+        user_rows = db.session.query(WorkLog.user_id, User.username, User.name) \
+            .join(User, WorkLog.user_id == User.id) \
+            .distinct().all()
+        user_list = [{'id': r[0], 'username': r[1], 'name': r[2] or r[1]} for r in user_rows]
+
+    return render_template(
+        'worklog_list.html',
+        view_mode='list',
+        logs=pagination.items,
+        pagination=pagination,
+        total_hours=round(total_hours, 2),
+        categories=WORKLOG_CATEGORIES,
+        statuses=WORKLOG_STATUSES,
+        work_types=WORKLOG_TYPES,
+        is_admin=user.is_admin(),
+        user_list=user_list,
+        current_user_id=user.id,
+        start_filter=start_filter,
+        end_filter=end_filter,
+        category_filter=category_filter,
+        status_filter=status_filter,
+        user_filter=user_filter,
+        search_keyword=search_keyword,
+        current_page=page
+    )
+
+
+def _period_of_time(t):
+    """根据 start_time 划分时段；返回 0=上午(<12) 1=下午(12-18) 2=晚上(>=18)，无时间为 0"""
+    if t is None:
+        return 0
+    h = t.hour
+    if h < 12:
+        return 0
+    if h < 18:
+        return 1
+    return 2
+
+
+def _build_worklog_from_form(user, request_form):
+    """从表单字段提取字段，返回 (WorkLog, error_flash) 或 (None, msg)"""
+    title = (request_form.get('title') or '').strip()
+    work_date_str = (request_form.get('work_date') or '').strip()
+    category = (request_form.get('category') or '其他').strip()
+    status = (request_form.get('status') or '已完成').strip()
+    work_type = (request_form.get('work_type') or '日常').strip()
+    content = (request_form.get('content') or '').strip()
+    hours_str = (request_form.get('hours') or '').strip()
+    start_time = parse_time_or_none(request_form.get('start_time'))
+    end_time = parse_time_or_none(request_form.get('end_time'))
+    return_url = request_form.get('return_url') or url_for('worklog')
+
+    if not title:
+        return None, ('请填写工作标题', return_url)
+    if not work_date_str:
+        return None, ('请选择工作日期', return_url)
+    try:
+        work_date = datetime.strptime(work_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return None, ('日期格式错误，请使用 YYYY-MM-DD', return_url)
+
+    hours = None
+    if hours_str:
+        try:
+            hours = float(hours_str)
+            if hours < 0 or hours > 24:
+                raise ValueError
+        except ValueError:
+            return None, ('工时必须在 0-24 之间', return_url)
+
+    log = WorkLog(
+        user_id=user.id,
+        username=user.name or user.username,
+        work_date=work_date,
+        start_time=start_time,
+        end_time=end_time,
+        title=title,
+        content=content,
+        category=category if category in WORKLOG_CATEGORIES else '其他',
+        status=status if status in WORKLOG_STATUSES else '已完成',
+        work_type=work_type if work_type in WORKLOG_TYPES else '日常',
+        hours=hours
+    )
+    return log, None
+
+
+@app.route('/worklog/add', methods=['POST'])
+@login_required
+def add_worklog():
+    user = User.query.get(session['user_id'])
+    log, err = _build_worklog_from_form(user, request.form)
+    if err:
+        flash(err[0], 'error')
+        return redirect(err[1])
+    db.session.add(log)
+    db.session.commit()
+    flash('工作记录已登记', 'success')
+    return_url = request.form.get('return_url') or url_for('worklog')
+    return redirect(return_url)
+
+
+@app.route('/worklog/edit/<int:log_id>', methods=['GET', 'POST'])
+@login_required
+def edit_worklog(log_id):
+    user = User.query.get(session['user_id'])
+    log = WorkLog.query.get_or_404(log_id)
+
+    if not user.is_admin() and log.user_id != user.id:
+        flash('无权编辑该工作记录', 'error')
+        return redirect(url_for('worklog'))
+
+    if request.method == 'POST':
+        title = (request.form.get('title') or '').strip()
+        work_date_str = (request.form.get('work_date') or '').strip()
+
+        if not title or not work_date_str:
+            flash('标题和日期不能为空', 'error')
+            return redirect(url_for('edit_worklog', log_id=log_id))
+
+        try:
+            log.work_date = datetime.strptime(work_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            flash('日期格式错误', 'error')
+            return redirect(url_for('edit_worklog', log_id=log_id))
+
+        log.title = title
+        log.content = (request.form.get('content') or '').strip()
+        log.category = (request.form.get('category') or '其他').strip()
+        if log.category not in WORKLOG_CATEGORIES:
+            log.category = '其他'
+        log.status = (request.form.get('status') or '已完成').strip()
+        if log.status not in WORKLOG_STATUSES:
+            log.status = '已完成'
+        log.work_type = (request.form.get('work_type') or '日常').strip()
+        if log.work_type not in WORKLOG_TYPES:
+            log.work_type = '日常'
+        log.start_time = parse_time_or_none(request.form.get('start_time'))
+        log.end_time = parse_time_or_none(request.form.get('end_time'))
+
+        hours_str = (request.form.get('hours') or '').strip()
+        if hours_str:
+            try:
+                hours = float(hours_str)
+                if hours < 0 or hours > 24:
+                    raise ValueError
+                log.hours = hours
+            except ValueError:
+                flash('工时必须在 0-24 之间', 'error')
+                return redirect(url_for('edit_worklog', log_id=log_id))
+        else:
+            log.hours = None
+
+        db.session.commit()
+        flash('工作记录已更新', 'success')
+        return_url = request.form.get('return_url') or url_for('worklog')
+        return redirect(return_url)
+
+    return render_template(
+        'worklog_edit.html',
+        log=log,
+        categories=WORKLOG_CATEGORIES,
+        statuses=WORKLOG_STATUSES,
+        work_types=WORKLOG_TYPES
+    )
+
+
+@app.route('/worklog/delete/<int:log_id>', methods=['POST'])
+@login_required
+def delete_worklog(log_id):
+    user = User.query.get(session['user_id'])
+    log = WorkLog.query.get_or_404(log_id)
+
+    if not user.is_admin() and log.user_id != user.id:
+        flash('无权删除该工作记录', 'error')
+        return_url = request.form.get('return_url') or url_for('worklog')
+        return redirect(return_url)
+
+    db.session.delete(log)
+    db.session.commit()
+    flash('工作记录已删除', 'success')
+    return_url = request.form.get('return_url') or url_for('worklog')
+    return redirect(return_url)
+
+
+@app.route('/worklog/clear-week', methods=['POST'])
+@login_required
+def clear_week_worklog():
+    user = User.query.get(session['user_id'])
+    week_str = (request.form.get('week') or '').strip()
+    try:
+        ref_date = datetime.strptime(week_str, '%Y-%m-%d').date() if week_str else date.today()
+    except ValueError:
+        ref_date = date.today()
+    monday, sunday = get_week_range(ref_date)
+
+    q = WorkLog.query.filter(WorkLog.work_date >= monday, WorkLog.work_date <= sunday)
+    if not user.is_admin():
+        q = q.filter(WorkLog.user_id == user.id)
+    deleted = q.delete(synchronize_session=False)
+    db.session.commit()
+    flash(f'已清空本周 {deleted} 条工作记录', 'success')
+    return redirect(url_for('worklog', week=monday.isoformat()))
+
+
+@app.route('/worklog/export')
+@login_required
+def export_worklog():
+    user = User.query.get(session['user_id'])
+    logs_query = WorkLog.query
+    if not user.is_admin():
+        logs_query = logs_query.filter(WorkLog.user_id == user.id)
+
+    start_filter = request.args.get('start_filter', '').strip()
+    end_filter = request.args.get('end_filter', '').strip()
+    category_filter = request.args.get('category_filter', '').strip()
+    status_filter = request.args.get('status_filter', '').strip()
+    user_filter = request.args.get('user_filter', '').strip()
+    search_keyword = request.args.get('search', '').strip()
+    week_str = request.args.get('week', '').strip()
+
+    if week_str:
+        try:
+            ref_date = datetime.strptime(week_str, '%Y-%m-%d').date()
+            monday, sunday = get_week_range(ref_date)
+            logs_query = logs_query.filter(WorkLog.work_date >= monday, WorkLog.work_date <= sunday)
+        except ValueError:
+            pass
+
+    if start_filter:
+        try:
+            logs_query = logs_query.filter(WorkLog.work_date >= datetime.strptime(start_filter, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+    if end_filter:
+        try:
+            logs_query = logs_query.filter(WorkLog.work_date <= datetime.strptime(end_filter, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+    if category_filter and category_filter != 'all':
+        logs_query = logs_query.filter(WorkLog.category == category_filter)
+    if status_filter and status_filter != 'all':
+        logs_query = logs_query.filter(WorkLog.status == status_filter)
+    if user_filter and user_filter != 'all' and user.is_admin():
+        try:
+            logs_query = logs_query.filter(WorkLog.user_id == int(user_filter))
+        except ValueError:
+            pass
+    if search_keyword:
+        keyword = f'%{search_keyword}%'
+        logs_query = logs_query.filter(db.or_(WorkLog.title.like(keyword), WorkLog.content.like(keyword)))
+
+    logs = logs_query.order_by(WorkLog.work_date.asc(), WorkLog.start_time.asc()).all()
+
+    si = StringIO()
+    si.write('\ufeff')
+    writer = csv.writer(si)
+    writer.writerow(['日期', '开始时间', '结束时间', '登记人', '标题', '类别', '类型', '状态', '工时(h)', '工作内容'])
+    for log in logs:
+        writer.writerow([
+            log.work_date.strftime('%Y-%m-%d') if log.work_date else '',
+            log.start_time.strftime('%H:%M') if log.start_time else '',
+            log.end_time.strftime('%H:%M') if log.end_time else '',
+            log.username or '',
+            log.title or '',
+            log.category or '',
+            log.work_type or '',
+            log.status or '',
+            log.hours if log.hours is not None else '',
+            (log.content or '').replace('\n', ' ').replace('\r', ' ')
+        ])
+
+    output = si.getvalue()
+    filename = f"worklog_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response = make_response(output.encode('utf-8'))
+    response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+    response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+    return response
+
+
+@app.route('/worklog/import', methods=['POST'])
+@login_required
+def import_worklog():
+    """CSV 导入：列顺序 日期,开始时间,结束时间,登记人,标题,类别,类型,状态,工时,工作内容"""
+    user = User.query.get(session['user_id'])
+
+    if 'file' not in request.files:
+        flash('请上传 CSV 文件', 'error')
+        return redirect(url_for('worklog'))
+    file = request.files['file']
+    if not file.filename:
+        flash('请选择 CSV 文件', 'error')
+        return redirect(url_for('worklog'))
+    if not file.filename.lower().endswith('.csv'):
+        flash('仅支持 .csv 文件', 'error')
+        return redirect(url_for('worklog'))
+
+    try:
+        raw = file.read().decode('utf-8-sig')
+    except UnicodeDecodeError:
+        file.seek(0)
+        raw = file.read().decode('gbk', errors='ignore')
+
+    reader = csv.reader(StringIO(raw))
+    rows = list(reader)
+    if not rows:
+        flash('CSV 文件为空', 'error')
+        return redirect(url_for('worklog'))
+
+    header = rows[0]
+    expected_min_cols = 5
+    if len(header) < expected_min_cols:
+        flash(f'CSV 格式错误，至少需要 {expected_min_cols} 列', 'error')
+        return redirect(url_for('worklog'))
+
+    imported = 0
+    skipped = 0
+    for row in rows[1:]:
+        if not row or not any(c.strip() for c in row):
+            continue
+        # 列对齐
+        row = (row + [''] * 10)[:10]
+        date_s = (row[0] or '').strip()
+        start_s = (row[1] or '').strip()
+        end_s = (row[2] or '').strip()
+        # row[3] = 登记人（忽略，使用当前用户）
+        title_s = (row[4] or '').strip()
+        cat_s = (row[5] or '其他').strip()
+        type_s = (row[6] or '日常').strip()
+        status_s = (row[7] or '已完成').strip()
+        hours_s = (row[8] or '').strip()
+        content_s = (row[9] or '').strip()
+
+        if not title_s or not date_s:
+            skipped += 1
+            continue
+        try:
+            work_date = datetime.strptime(date_s, '%Y-%m-%d').date()
+        except ValueError:
+            skipped += 1
+            continue
+
+        hours = None
+        if hours_s:
+            try:
+                hours = float(hours_s)
+            except ValueError:
+                hours = None
+
+        log = WorkLog(
+            user_id=user.id,
+            username=user.name or user.username,
+            work_date=work_date,
+            start_time=parse_time_or_none(start_s),
+            end_time=parse_time_or_none(end_s),
+            title=title_s[:200],
+            content=content_s,
+            category=cat_s if cat_s in WORKLOG_CATEGORIES else '其他',
+            status=status_s if status_s in WORKLOG_STATUSES else '已完成',
+            work_type=type_s if type_s in WORKLOG_TYPES else '日常',
+            hours=hours if hours is not None and 0 <= hours <= 24 else None
+        )
+        db.session.add(log)
+        imported += 1
+
+    db.session.commit()
+    flash(f'导入完成：成功 {imported} 条，跳过 {skipped} 条', 'success')
+    return redirect(url_for('worklog'))
+
 
 @app.route('/gantt')
 @login_required

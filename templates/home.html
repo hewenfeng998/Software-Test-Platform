@@ -64,9 +64,9 @@
         }
         .menu-grid {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            grid-template-columns: repeat(8, 1fr);
             gap: 25px;
-            max-width: 1800px;
+            max-width: 2000px;
             margin: 0 auto;
         }
         .menu-card {
@@ -142,6 +142,13 @@
         }
         .menu-card.performance:hover .menu-title,
         .menu-card.performance:hover .menu-desc {
+            color: white;
+        }
+        .menu-card.worklog:hover {
+            background: linear-gradient(135deg, #e91e63, #ff5722);
+        }
+        .menu-card.worklog:hover .menu-title,
+        .menu-card.worklog:hover .menu-desc {
             color: white;
         }
         .footer {
@@ -231,6 +238,12 @@
                 <div class="menu-desc">员工绩效评估与管理</div>
             </a>
             {% endif %}
+
+            <a href="{{ url_for('worklog') }}" class="menu-card worklog">
+                <div class="menu-icon">📓</div>
+                <div class="menu-title">工作记录</div>
+                <div class="menu-desc">个人每日工作登记</div>
+            </a>
         </div>
 
         <div class="footer">

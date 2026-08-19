@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作记录 · 列表</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #f5f7fa;
+            min-height: 100vh;
+        }
+        .header {
+            background-color: #fff;
+            border-bottom: 1px solid #eee;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .back-btn {
+            padding: 9px 16px;
+            background: #2196F3; color: white; text-decoration: none;
+            border-radius: 5px; font-size: 13px;
+        }
+        .back-btn:hover { background: #1976D2; }
+        .title { font-size: 18px; font-weight: bold; color: #333; }
+        .topbar-spacer { flex: 1; }
+        .view-switch a {
+            padding: 8px 14px; border-radius: 5px;
+            background: #dde8f5; border: 1px solid #97c0e7; color: #2c5d8c;
+            text-decoration: none; font-size: 13px;
+        }
+        .btn-export {
+            padding: 8px 14px; background: #ff9800; color: white;
+            border-radius: 5px; text-decoration: none; font-size: 13px;
+        }
+        .btn-export:hover { background: #e68900; }
+        .header-stat {
+            font-size: 13px; color: #555; background: #f0f4ff;
+            padding: 7px 14px; border-radius: 6px;
+        }
+        .header-stat strong { color: #e91e63; margin-left: 6px; }
+
+        .container { max-width: 1400px; margin: 30px auto; padding: 0 20px; }
+        .flash {
+            padding: 12px 15px; border-radius: 5px; margin-bottom: 18px; font-size: 14px;
+        }
+        .flash-success { background:#d4edda; color:#155724; border:1px solid #c3e6cb; }
+        .flash-error { background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; }
+
+        .panel {
+            background:#fff; border-radius:12px; padding:24px 28px;
+            margin-bottom:24px; box-shadow:0 2px 10px rgba(0,0,0,0.06);
+        }
+        .panel h2 { font-size: 17px; color: #333; margin-bottom: 16px; }
+
+        .form-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+        .form-group label {
+            display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 12px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 9px 10px; border: 1px solid #ddd; border-radius: 5px;
+            font-size: 13px; font-family: inherit;
+        }
+        .form-group textarea { resize: vertical; min-height: 70px; }
+
+        .submit-btn {
+            padding: 11px 32px; background: #e91e63; color: white; border: none;
+            border-radius: 5px; font-size: 14px; cursor: pointer; font-weight: bold;
+        }
+        .submit-btn:hover { background: #c2185b; }
+
+        .filters {
+            display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px;
+            align-items: end;
+        }
+        .filter-btn {
+            padding: 9px 18px; background: #2196F3; color: white; border: none;
+            border-radius: 5px; cursor: pointer; font-size: 13px;
+        }
+        .filter-reset {
+            padding: 9px 14px; background: #6c757d; color: white;
+            border-radius: 5px; text-align: center; text-decoration: none; font-size: 13px;
+        }
+
+        .table-wrap { overflow-x: auto; }
+        table.worklog-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table.worklog-table th, table.worklog-table td {
+            padding: 10px 12px; border-bottom: 1px solid #eee; text-align: left;
+            vertical-align: top;
+        }
+        table.worklog-table th {
+            background: #f7f9fc; color: #555; font-weight: bold; white-space: nowrap;
+        }
+        table.worklog-table tr:hover td { background: #fbfcff; }
+        .badge {
+            display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 12px; color: white;
+        }
+        .badge-cat { background: #607d8b; }
+        .badge-type { background: #009688; }
+        .badge-status-done { background: #4caf50; }
+        .badge-status-doing { background: #ff9800; }
+        .badge-status-pending { background: #9c27b0; }
+        .badge-status-cancel { background: #9e9e9e; }
+        .cell-content { max-width: 280px; white-space: pre-wrap; word-break: break-word; }
+
+        .action-link {
+            color: #2196f3; text-decoration: none; margin-right: 8px; font-size: 13px;
+        }
+        .action-link:hover { text-decoration: underline; }
+        .action-link.del { color: #f44336; }
+
+        .no-data { text-align: center; padding: 40px; color: #888; }
+        .pagination {
+            margin-top: 18px; display: flex; justify-content: center;
+            gap: 6px; flex-wrap: wrap;
+        }
+        .pagination a, .pagination span {
+            padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px;
+            text-decoration: none; color: #333; font-size: 13px;
+        }
+        .pagination a:hover { background: #f0f4ff; }
+        .pagination .current {
+            background: #e91e63; color: white; border-color: #e91e63;
+        }
+        .pagination .disabled { color: #bbb; }
+
+        @media (max-width: 1024px) {
+            .form-grid, .filters { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="{{ url_for('home') }}" class="back-btn">← 返回主页</a>
+        <span class="title">📋 工作记录 · 列表</span>
+        <div class="topbar-spacer"></div>
+        <div class="header-stat">当前页工时合计 <strong>{{ total_hours }}h</strong></div>
+        <a href="{{ url_for('export_worklog',
+            start_filter=start_filter, end_filter=end_filter,
+            category_filter=category_filter, status_filter=status_filter,
+            user_filter=user_filter, search=search_keyword) }}" class="btn-export">⬇️ 导出 CSV</a>
+        <div class="view-switch">
+            <a href="{{ url_for('worklog') }}">📅 周历视图</a>
+        </div>
+    </div>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- 登记 -->
+        <div class="panel">
+            <h2>✏️ 登记新工作记录</h2>
+            <form method="POST" action="{{ url_for('add_worklog') }}">
+                <input type="hidden" name="return_url" value="{{ url_for('worklog_list') }}">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>工作日期 <span style="color:#e91e63">*</span></label>
+                        <input type="date" name="work_date" required>
+                    </div>
+                    <div class="form-group" style="grid-column: span 3;">
+                        <label>工作标题 <span style="color:#e91e63">*</span></label>
+                        <input type="text" name="title" required maxlength="200" placeholder="例如：完成 XX 模块的用例评审">
+                    </div>
+                    <div class="form-group">
+                        <label>类别</label>
+                        <select name="category">
+                            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>类型</label>
+                        <select name="work_type">
+                            {% for t in work_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>状态</label>
+                        <select name="status">
+                            {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>工时(h)</label>
+                        <input type="number" name="hours" min="0" max="24" step="0.5" placeholder="0.0">
+                    </div>
+                    <div class="form-group">
+                        <label>开始时间</label>
+                        <input type="time" name="start_time">
+                    </div>
+                    <div class="form-group">
+                        <label>结束时间</label>
+                        <input type="time" name="end_time">
+                    </div>
+                    <div class="form-group" style="grid-column: span 6;">
+                        <label>工作内容</label>
+                        <textarea name="content" maxlength="2000" placeholder="详细描述今日的工作内容..."></textarea>
+                    </div>
+                </div>
+                <div style="margin-top:18px;">
+                    <button type="submit" class="submit-btn">📥 提交登记</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 筛选 -->
+        <div class="panel">
+            <h2>🔍 筛选 / 搜索</h2>
+            <form method="GET" action="{{ url_for('worklog_list') }}">
+                <div class="filters">
+                    <div class="form-group">
+                        <label>起始日期</label>
+                        <input type="date" name="start_filter" value="{{ start_filter }}">
+                    </div>
+                    <div class="form-group">
+                        <label>结束日期</label>
+                        <input type="date" name="end_filter" value="{{ end_filter }}">
+                    </div>
+                    <div class="form-group">
+                        <label>类别</label>
+                        <select name="category_filter">
+                            <option value="all">全部</option>
+                            {% for c in categories %}
+                                <option value="{{ c }}" {% if category_filter == c %}selected{% endif %}>{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>状态</label>
+                        <select name="status_filter">
+                            <option value="all">全部</option>
+                            {% for s in statuses %}
+                                <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% if is_admin %}
+                    <div class="form-group">
+                        <label>登记人</label>
+                        <select name="user_filter">
+                            <option value="all">全部人</option>
+                            {% for u in user_list %}
+                                <option value="{{ u.id }}" {% if user_filter == u.id|string %}selected{% endif %}>{{ u.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="form-group" {% if not is_admin %}style="grid-column: span 2;"{% endif %}>
+                        <label>关键词</label>
+                        <input type="text" name="search" value="{{ search_keyword }}" placeholder="搜索标题/内容">
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="filter-btn">查询</button>
+                    </div>
+                    <div class="form-group">
+                        <a href="{{ url_for('worklog_list') }}" class="filter-reset">重置</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 列表 -->
+        <div class="panel">
+            <h2>📚 记录列表
+                {% if is_admin %}<span style="font-size:12px;color:#888;font-weight:normal;">（管理员视图）</span>{% endif %}
+            </h2>
+            {% if logs %}
+                <div class="table-wrap">
+                    <table class="worklog-table">
+                        <thead>
+                            <tr>
+                                <th>日期</th>
+                                <th>时间</th>
+                                {% if is_admin %}<th>登记人</th>{% endif %}
+                                <th>标题</th>
+                                <th>类别</th>
+                                <th>类型</th>
+                                <th>状态</th>
+                                <th>工时</th>
+                                <th>工作内容</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td>{{ log.work_date.strftime('%Y-%m-%d') if log.work_date else '-' }}</td>
+                                <td>
+                                    {% if log.start_time %}
+                                        {{ log.start_time.strftime('%H:%M') }}{% if log.end_time %}-{{ log.end_time.strftime('%H:%M') }}{% endif %}
+                                    {% else %}-{% endif %}
+                                </td>
+                                {% if is_admin %}<td>{{ log.username }}</td>{% endif %}
+                                <td style="font-weight:bold;color:#333;">{{ log.title }}</td>
+                                <td><span class="badge badge-cat">{{ log.category }}</span></td>
+                                <td><span class="badge badge-type">{{ log.work_type }}</span></td>
+                                <td>
+                                    {% if log.status == '已完成' %}<span class="badge badge-status-done">{{ log.status }}</span>
+                                    {% elif log.status == '进行中' %}<span class="badge badge-status-doing">{{ log.status }}</span>
+                                    {% elif log.status == '待处理' %}<span class="badge badge-status-pending">{{ log.status }}</span>
+                                    {% else %}<span class="badge badge-status-cancel">{{ log.status }}</span>{% endif %}
+                                </td>
+                                <td>{{ '%.1f'|format(log.hours) if log.hours is not none else '-' }}h</td>
+                                <td><div class="cell-content">{{ log.content or '-' }}</div></td>
+                                <td>
+                                    {% if is_admin or log.user_id == current_user_id %}
+                                        <a class="action-link" href="{{ url_for('edit_worklog', log_id=log.id) }}?return_url={{ url_for('worklog_list')|urlencode }}">编辑</a>
+                                        <form method="POST" action="{{ url_for('delete_worklog', log_id=log.id) }}" style="display:inline;" onsubmit="return confirm('确定删除该工作记录？');">
+                                            <input type="hidden" name="return_url" value="{{ url_for('worklog_list') }}">
+                                            <button type="submit" class="action-link del" style="background:none;border:none;cursor:pointer;padding:0;font-family:inherit;">删除</button>
+                                        </form>
+                                    {% else %}
+                                        <span style="color:#bbb;font-size:12px;">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if pagination.pages > 1 %}
+                {% set q_suffix = '&start_filter=' ~ start_filter ~ '&end_filter=' ~ end_filter ~ '&category_filter=' ~ category_filter ~ '&status_filter=' ~ status_filter ~ '&user_filter=' ~ user_filter ~ '&search=' ~ search_keyword %}
+                <div class="pagination">
+                    {% if pagination.has_prev %}
+                        <a href="{{ url_for('worklog_list', page=pagination.prev_num) }}{{ q_suffix }}">上一页</a>
+                    {% else %}<span class="disabled">上一页</span>{% endif %}
+
+                    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                            {% if p == pagination.page %}
+                                <span class="current">{{ p }}</span>
+                            {% else %}
+                                <a href="{{ url_for('worklog_list', page=p) }}{{ q_suffix }}">{{ p }}</a>
+                            {% endif %}
+                        {% else %}<span class="disabled">…</span>{% endif %}
+                    {% endfor %}
+
+                    {% if pagination.has_next %}
+                        <a href="{{ url_for('worklog_list', page=pagination.next_num) }}{{ q_suffix }}">下一页</a>
+                    {% else %}<span class="disabled">下一页</span>{% endif %}
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="no-data">📭 暂无工作记录，试着登记一条吧！</div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

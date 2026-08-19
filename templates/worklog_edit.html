@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑工作记录</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #f5f7fa;
+            min-height: 100vh;
+        }
+        .header {
+            background-color: #fff;
+            border-bottom: 1px solid #eee;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .back-btn {
+            padding: 9px 14px; background: #2196F3; color: white;
+            text-decoration: none; border-radius: 5px; font-size: 13px;
+        }
+        .back-btn:hover { background: #1976D2; }
+        .title { font-size: 18px; font-weight: bold; color: #333; }
+        .container { max-width: 760px; margin: 30px auto; padding: 0 20px; }
+        .flash {
+            padding: 12px 15px; border-radius: 5px; margin-bottom: 18px; font-size: 14px;
+        }
+        .flash-success { background:#d4edda; color:#155724; border:1px solid #c3e6cb; }
+        .flash-error { background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; }
+        .panel {
+            background:#fff; border-radius:12px; padding:28px;
+            box-shadow:0 2px 10px rgba(0,0,0,0.06);
+        }
+        .panel h2 { font-size: 17px; color: #333; margin-bottom: 18px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label {
+            display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 13px;
+        }
+        .form-group label .required { color: #e91e63; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 9px 10px; border: 1px solid #ddd; border-radius: 5px;
+            font-size: 13px; font-family: inherit;
+        }
+        .form-group textarea { resize: vertical; min-height: 90px; }
+        .form-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+        }
+        .actions { margin-top: 22px; display: flex; gap: 12px; }
+        .btn-submit {
+            padding: 11px 28px; background: #e91e63; color: white; border: none;
+            border-radius: 5px; font-size: 14px; font-weight: bold; cursor: pointer;
+        }
+        .btn-submit:hover { background: #c2185b; }
+        .btn-cancel {
+            padding: 11px 22px; background: #6c757d; color: white;
+            border-radius: 5px; text-decoration: none; font-size: 14px;
+        }
+        .btn-cancel:hover { background: #5a6268; }
+        .meta {
+            margin-top: 18px; padding: 12px 14px; background: #f7f9fc; border-radius: 6px;
+            font-size: 12px; color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="javascript:history.back()" class="back-btn">← 返回</a>
+        <span class="title">✏️ 编辑工作记录</span>
+    </div>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="panel">
+            <h2>修改工作记录</h2>
+            <form method="POST">
+                <input type="hidden" name="return_url" value="{{ request.args.get('return_url', '') }}">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>工作日期 <span class="required">*</span></label>
+                        <input type="date" name="work_date" required
+                               value="{{ log.work_date.strftime('%Y-%m-%d') if log.work_date else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>登记人</label>
+                        <input type="text" value="{{ log.username }}" disabled>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>工作标题 <span class="required">*</span></label>
+                    <input type="text" name="title" required maxlength="200" value="{{ log.title }}">
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>开始时间</label>
+                        <input type="time" name="start_time"
+                               value="{{ log.start_time.strftime('%H:%M') if log.start_time else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>结束时间</label>
+                        <input type="time" name="end_time"
+                               value="{{ log.end_time.strftime('%H:%M') if log.end_time else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>类别</label>
+                        <select name="category">
+                            {% for c in categories %}
+                                <option value="{{ c }}" {% if log.category == c %}selected{% endif %}>{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>类型</label>
+                        <select name="work_type">
+                            {% for t in work_types %}
+                                <option value="{{ t }}" {% if log.work_type == t %}selected{% endif %}>{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>状态</label>
+                        <select name="status">
+                            {% for s in statuses %}
+                                <option value="{{ s }}" {% if log.status == s %}selected{% endif %}>{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>工时(h)</label>
+                        <input type="number" name="hours" min="0" max="24" step="0.5"
+                               value="{{ log.hours if log.hours is not none else '' }}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>工作内容</label>
+                    <textarea name="content" maxlength="2000">{{ log.content or '' }}</textarea>
+                </div>
+                <div class="actions">
+                    <button type="submit" class="btn-submit">💾 保存修改</button>
+                    <a href="javascript:history.back()" class="btn-cancel">取消</a>
+                </div>
+            </form>
+            <div class="meta">
+                创建时间：{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '-' }}
+                &nbsp;·&nbsp;
+                最近更新：{{ log.updated_at.strftime('%Y-%m-%d %H:%M:%S') if log.updated_at else '-' }}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
